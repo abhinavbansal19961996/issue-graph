@@ -22,7 +22,7 @@ import { shellTransport } from "./transports/shell.js";
 import type { Seed } from "./types.js";
 
 const USAGE =
-  "usage: gh-graph <url|number|--seeds a,b,c|--label L> [--repo owner/repo] [--depth N] [--max-nodes N] [--hub-threshold N] [--prioritize] [--cluster] [--cluster-run claude|codex] [--json out.json] [--html out.html] [--no-snapshot]";
+  "usage: xref <url|number|--seeds a,b,c|--label L> [--repo owner/repo] [--depth N] [--max-nodes N] [--hub-threshold N] [--prioritize] [--cluster] [--cluster-run claude|codex] [--json out.json] [--html out.html] [--no-snapshot]";
 
 interface Args {
   seed: string;
@@ -147,7 +147,7 @@ async function main(): Promise<void> {
   if (hubs.length) {
     md += "\n## Hubs not expanded — re-seed to explore\n\n";
     for (const h of hubs) {
-      md += `- ${h.key} (${h.edges.length} refs) → \`gh-graph ${h.number} --repo ${h.owner}/${h.repo} --depth 1\`\n`;
+      md += `- ${h.key} (${h.edges.length} refs) → \`xref ${h.number} --repo ${h.owner}/${h.repo} --depth 1\`\n`;
     }
   }
 

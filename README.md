@@ -1,6 +1,6 @@
-# gh-graph
+# xref
 
-`gh-graph` finds the full reference graph around a GitHub pull request or issue. It follows comments, mentions, linked pull requests, cross-referenced issues, closing references, and external links across repositories.
+`@vercel-labs/xref` finds the full reference graph around a GitHub pull request or issue. It follows comments, mentions, linked pull requests, cross-referenced issues, closing references, and external links across repositories.
 
 Use it before you work on an issue or PR. It shows related work that a normal text search can miss.
 
@@ -8,42 +8,50 @@ The CLI crawls, classifies, attributes, and saves the graph. It can also generat
 
 ## Install
 
-You need [Bun](https://bun.sh) and an authenticated [`gh`](https://cli.github.com) CLI.
+The CLI needs [Bun](https://bun.sh) and an authenticated [`gh`](https://cli.github.com).
 
 ```bash
-git clone <repo> gh-graph && cd gh-graph
+bun add -g @vercel-labs/xref
+```
+
+To work on it instead:
+
+```bash
+git clone https://github.com/vercel-labs/xref && cd xref
 bun install
 bun link
 ```
 
-`bun link` adds `gh-graph` to your `PATH`.
+Either way you get an `xref` command on your `PATH`.
+
+Using it as a library needs neither Bun nor `gh` — see [Use as a library](#use-as-a-library).
 
 ## Run a graph
 
 ```bash
-gh-graph <url|number> --repo owner/repo [options]
-gh-graph 352 --repo vercel-labs/portless
-gh-graph https://github.com/vercel-labs/portless/pull/352
+xref <url|number> --repo owner/repo [options]
+xref 352 --repo vercel-labs/portless
+xref https://github.com/vercel-labs/portless/pull/352
 ```
 
 Survey related issues from multiple starting points:
 
 ```bash
-gh-graph --seeds 297,343,352 --repo vercel-labs/portless
-gh-graph --label tailscale --repo vercel-labs/portless
+xref --seeds 297,343,352 --repo vercel-labs/portless
+xref --label tailscale --repo vercel-labs/portless
 ```
 
 Rank the open nodes by discussion heat — most comments, participants, reactions, inbound references, and time open first. Useful for "fix the most impactful issues" triage instead of inbox zero:
 
 ```bash
-gh-graph --label tailscale --repo vercel-labs/portless --prioritize
+xref --label tailscale --repo vercel-labs/portless --prioritize
 ```
 
 Generate a root-cause clustering prompt, or run it with a headless agent:
 
 ```bash
-gh-graph 352 --repo vercel-labs/portless --cluster
-gh-graph 352 --repo vercel-labs/portless --cluster-run claude
+xref 352 --repo vercel-labs/portless --cluster
+xref 352 --repo vercel-labs/portless --cluster-run claude
 ```
 
 ## Options
@@ -87,7 +95,7 @@ The `--clusters` file is either an array of `{ label, root_cause?, members: [{ k
 
 ## How it finds references
 
-`gh-graph` uses two sources:
+`@vercel-labs/xref` uses two sources:
 
 - text references in issue and pull request bodies and comments, including `#123`, `owner/repo#123`, and URLs
 - structural references from the GitHub GraphQL API, including cross-references, connected events, and closing references
@@ -100,7 +108,7 @@ A node limit and hub limit prevent a deep crawl from pulling in an entire tracke
 
 Each node records its author and the accounts that referenced it. Each edge records the actor and date.
 
-Runs are saved in `~/.gh-graph/`. A later run over the same starting points shows what changed.
+Runs are saved in `~/.xref/`. A later run over the same starting points shows what changed.
 
 With `--cluster`, the CLI prints a prompt and compact payload for the calling agent. The agent does the root-cause analysis in its own context. The CLI does not need an API key. `--cluster-run` can call a headless `claude` or `codex` process for unattended runs.
 
@@ -111,8 +119,8 @@ crawl runs from a machine with an authenticated `gh` and from a server that
 only has a token. You pick the transport.
 
 ```ts
-import { classify, crawl, fileOverlaps, makeFetchNode, prioritize } from "gh-graph";
-import { httpTransport } from "gh-graph/transport/http";
+import { classify, crawl, fileOverlaps, makeFetchNode, prioritize } from "@vercel-labs/xref";
+import { httpTransport } from "@vercel-labs/xref/transport/http";
 
 const transport = httpTransport({ token: process.env.GITHUB_TOKEN! });
 
@@ -131,11 +139,11 @@ Entry points:
 
 | Import | What it needs |
 | --- | --- |
-| `gh-graph` | Nothing. Types, crawl, classify, prioritize, overlaps, renderers. No Node builtins, so it bundles anywhere. |
-| `gh-graph/transport/http` | `fetch` and a token. Retries on 5xx, honors `retry-after` and the rate-limit reset, caps requests in flight. |
-| `gh-graph/transport/shell` | An authenticated `gh` on `PATH`. What the CLI uses. |
-| `gh-graph/snapshot` | A writable filesystem. |
-| `gh-graph/cluster` | A `claude` or `codex` binary. |
+| `@vercel-labs/xref` | Nothing. Types, crawl, classify, prioritize, overlaps, renderers. No Node builtins, so it bundles anywhere. |
+| `@vercel-labs/xref/transport/http` | `fetch` and a token. Retries on 5xx, honors `retry-after` and the rate-limit reset, caps requests in flight. |
+| `@vercel-labs/xref/transport/shell` | An authenticated `gh` on `PATH`. What the CLI uses. |
+| `@vercel-labs/xref/snapshot` | A writable filesystem. |
+| `@vercel-labs/xref/cluster` | A `claude` or `codex` binary. |
 
 `token` also accepts a function, sync or async, so a short-lived credential can
 be resolved per request.
@@ -165,4 +173,4 @@ bun run scripts/verify-transports.ts 25 vercel-labs/agent-browser 2
 
 ## Use with Claude Code
 
-The `gh-graph` Claude Code skill wraps this CLI. It lets an agent run the graph by intent and then cluster the result.
+The `@vercel-labs/xref` Claude Code skill wraps this CLI. It lets an agent run the graph by intent and then cluster the result.

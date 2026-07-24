@@ -5,10 +5,10 @@
  *
  * The parts that do touch the machine are separate entry points, so that
  * importing the core never drags them in:
- *   gh-graph/transport/shell  — `gh` shell-out (needs node:child_process)
- *   gh-graph/transport/http   — fetch + token
- *   gh-graph/snapshot         — on-disk snapshots (needs node:fs)
- *   gh-graph/cluster          — shells out to a coding agent
+ *   @vercel-labs/xref/transport/shell  — `gh` shell-out (needs node:child_process)
+ *   @vercel-labs/xref/transport/http   — fetch + token
+ *   @vercel-labs/xref/snapshot         — on-disk snapshots (needs node:fs)
+ *   @vercel-labs/xref/cluster          — shells out to a coding agent
  */
 export * from "./classify.js";
 export * from "./crawl.js";

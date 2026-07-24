@@ -1,18 +1,18 @@
 ---
-name: gh-graph
-description: Snapshot the reference graph of a GitHub PR or issue and trace every linked PR, cross-referenced issue, and mention across repos. Use before working an issue/PR to see its whole graph first (the review-full-pr-issue-graph rule); to find orphan, superseded, competing, or duplicate PRs; to see who mentioned or linked it; to survey a backlog by root-cause cluster; to rank a backlog by discussion heat (comments, participants, reactions, inbound links, time open) and pick the most impactful issue to fix next; to spot two PRs that touch the same files; to catch a PR that says "fixes #N" but won't auto-close; or to re-check what changed since the last snapshot. Trigger words include gh-graph, map this PR/issue, trace references, what links to this, who mentioned this, find orphans, duplicate PRs, survey backlog, prioritize backlog, what to fix first, most impactful issues.
-compatibility: Requires the global `gh-graph` CLI (source at ~/Programming/vercel/gh-graph; install with `cd ~/Programming/vercel/gh-graph && bun link`), plus `gh` (authenticated), `bun`, and network access for the GitHub API. Snapshots persist under ~/.gh-graph/. Clustering runs in the calling agent's context, or shells out to `claude`/`codex` with --cluster-run.
+name: xref
+description: Snapshot the reference graph of a GitHub PR or issue and trace every linked PR, cross-referenced issue, and mention across repos. Use before working an issue/PR to see its whole graph first (the review-full-pr-issue-graph rule); to find orphan, superseded, competing, or duplicate PRs; to see who mentioned or linked it; to survey a backlog by root-cause cluster; to rank a backlog by discussion heat (comments, participants, reactions, inbound links, time open) and pick the most impactful issue to fix next; to spot two PRs that touch the same files; to catch a PR that says "fixes #N" but won't auto-close; or to re-check what changed since the last snapshot. Trigger words include xref, map this PR/issue, trace references, what links to this, who mentioned this, find orphans, duplicate PRs, survey backlog, prioritize backlog, what to fix first, most impactful issues.
+compatibility: Requires the global `xref` command (install with `bun add -g @vercel-labs/xref`; source at github.com/vercel-labs/xref), plus `gh` (authenticated), `bun`, and network access for the GitHub API. Snapshots persist under ~/.xref/. Clustering runs in the calling agent's context, or shells out to `claude`/`codex` with --cluster-run.
 ---
 
-# gh-graph
+# xref
 
-Take a **snapshot** of everything a GitHub PR/issue connects to, so no **orphan** gets left behind — and so you never open a PR that duplicates work already in flight. The CLI is the hands (crawls, guards, classifies, attributes, persists); you are the brain (read the graph, run the one semantic step it hands back). `gh-graph` is a globally-installed command (if it is missing, install it per compatibility above).
+Take a **snapshot** of everything a GitHub PR/issue connects to, so no **orphan** gets left behind — and so you never open a PR that duplicates work already in flight. The CLI is the hands (crawls, guards, classifies, attributes, persists); you are the brain (read the graph, run the one semantic step it hands back). `xref` is a globally-installed command (if it is missing, install it per compatibility above).
 
 ## Steps
 
 1. **Crawl the seed.**
    ```bash
-   gh-graph <url|number> --repo owner/repo [--depth N] [--cluster] [--prioritize]
+   xref <url|number> --repo owner/repo [--depth N] [--cluster] [--prioritize]
    ```
    Multi-seed / backlog survey: `--seeds 297,343,352` or `--label tailscale`. Add `--prioritize` when the ask is "what should I fix first".
    Done when the CLI has printed the Nodes list and the orphan checklist.
@@ -54,10 +54,10 @@ Take a **snapshot** of everything a GitHub PR/issue connects to, so no **orphan*
 - **Derived flags.** `competing` (>1 open PR closes an issue) and `claims-close-no-link` (a `fixes #N` that won't auto-close) are computed and attached per node.
 - **Attribution.** Each node carries its author and who mentioned it; each edge carries the actor and date.
 - **State is fetched live per node** (OPEN/CLOSED/MERGED), never trusted from a cross-reference event, which can be stale.
-- **Snapshot + diff.** Every run persists to `~/.gh-graph/`; the next run diffs against the last one.
+- **Snapshot + diff.** Every run persists to `~/.xref/`; the next run diffs against the last one.
 
 ## Guardrails
 
 - Report the graph to the user; they act on it. Never post a comment, review, or edit to GitHub (the no-public-github-comments rule).
-- Before opening a PR for an issue, run gh-graph on it first: an existing open PR, a superseded one, or a file-overlap pair means the work may already be done — coordinate and credit instead of duplicating.
+- Before opening a PR for an issue, run xref on it first: an existing open PR, a superseded one, or a file-overlap pair means the work may already be done — coordinate and credit instead of duplicating.
 - Cross-repo refs are fetched one hop and shown; external non-GitHub links are collected, with loopback/example/CI hosts filtered as noise.

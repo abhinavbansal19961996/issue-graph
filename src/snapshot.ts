@@ -3,10 +3,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { GraphNode, NodeKey, Snapshot } from "./types.js";
 
-/** Per-seed-set directory under ~/.gh-graph where snapshots are persisted. */
+/** Per-seed-set directory under ~/.xref where snapshots are persisted. */
 export function snapshotDir(owner: string, repo: string, seedKeys: NodeKey[]): string {
   const id = `${owner}-${repo}-${seedKeys.map((k) => k.split("#")[1]).join("_")}`.slice(0, 80);
-  return path.join(os.homedir(), ".gh-graph", id.replace(/[^\w.-]/g, "_"));
+  return path.join(os.homedir(), ".xref", id.replace(/[^\w.-]/g, "_"));
 }
 
 /** Prior snapshot filenames for a seed set, oldest first. */
