@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { classify, fillMentionedBy } from "./classify.js";
 import { clusterPayload, clusterPrompt, runAgent } from "./cluster.js";
 import { components, crawl } from "./crawl.js";
-import { labelSeeds } from "./github.js";
+import { labelSeeds, makeFetchNode } from "./github.js";
 import { type ClustersConfig, renderHtml } from "./html.js";
 import { fileOverlaps } from "./overlaps.js";
 import { prioritize, renderPriority } from "./priority.js";
@@ -17,6 +17,8 @@ import {
   toSnapshot,
   writeSnapshot,
 } from "./snapshot.js";
+import type { GhTransport } from "./transport.js";
+import { shellTransport } from "./transports/shell.js";
 import type { Seed } from "./types.js";
 
 const USAGE =
@@ -78,11 +80,12 @@ export function parseArgs(argv: string[]): Args {
   return a;
 }
 
-function resolveSeeds(a: Args): Seed[] {
+async function resolveSeeds(a: Args, transport: GhTransport): Promise<Seed[]> {
   if (a.label) {
     if (!a.repo) throw new Error("--label needs --repo");
     const [owner, repo] = a.repo.split("/");
-    return labelSeeds(a.repo, a.label).map((number) => ({ owner, repo, number }));
+    const numbers = await labelSeeds(transport, a.repo, a.label);
+    return numbers.map((number) => ({ owner, repo, number }));
   }
   if (a.seedsCsv) {
     if (!a.repo) throw new Error("--seeds needs --repo");
@@ -92,14 +95,15 @@ function resolveSeeds(a: Args): Seed[] {
   return [parseSeed(a.seed, a.repo)];
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   if (!argv.length) {
     console.error(USAGE);
     process.exit(1);
   }
   const args = parseArgs(argv);
-  const seeds = resolveSeeds(args);
+  const transport = shellTransport();
+  const seeds = await resolveSeeds(args, transport);
   if (!seeds.length) {
     console.error("no seeds resolved");
     process.exit(1);
@@ -111,12 +115,16 @@ function main(): void {
     `crawling ${seeds.length} seed(s) in ${primary.owner}/${primary.repo} (depth ${args.depth}, max ${args.maxNodes} nodes, hub>${args.hubThreshold})\n`,
   );
 
-  const { nodes, cappedOut } = crawl(seeds, {
-    maxDepth: args.depth,
-    maxNodes: args.maxNodes,
-    hubThreshold: args.hubThreshold,
-    primaryRepo: primary,
-  });
+  const { nodes, cappedOut } = await crawl(
+    seeds,
+    {
+      maxDepth: args.depth,
+      maxNodes: args.maxNodes,
+      hubThreshold: args.hubThreshold,
+      primaryRepo: primary,
+    },
+    makeFetchNode(transport),
+  );
   classify(nodes);
   fillMentionedBy(nodes);
 
@@ -216,4 +224,11 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) {
+  main().catch((err) => {
+    // A transport failure must not look like an empty backlog: exit non-zero so
+    // a scripted caller notices.
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  });
+}

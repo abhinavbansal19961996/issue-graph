@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "moduleResolution": "nodenext",
+    "module": "nodenext",
+    // The published package must not require Bun's ambient types — consumers
+    // are Node. `Bun.write` is only reachable from the CLI, which is excluded
+    // from this build and stays on the Bun entry point.
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "src/**/*.test.ts", "src/cli.ts"]
+}

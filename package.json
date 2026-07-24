@@ -1,26 +1,50 @@
 {
   "name": "gh-graph",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Snapshot and trace the full reference graph of a GitHub PR or issue — comments, linked PRs, cross-referenced issues, closing refs, and external links, recursively across repos.",
   "type": "module",
   "bin": {
     "gh-graph": "./src/cli.ts"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./transport/shell": {
+      "types": "./dist/transports/shell.d.ts",
+      "import": "./dist/transports/shell.js"
+    },
+    "./transport/http": {
+      "types": "./dist/transports/http.d.ts",
+      "import": "./dist/transports/http.js"
+    },
+    "./snapshot": {
+      "types": "./dist/snapshot.d.ts",
+      "import": "./dist/snapshot.js"
+    },
+    "./cluster": {
+      "types": "./dist/cluster.d.ts",
+      "import": "./dist/cluster.js"
+    }
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "start": "bun run src/cli.ts",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src",
     "lint:fix": "biome check --write src",
-    "format": "biome format --write src"
+    "format": "biome format --write src",
+    "prepublishOnly": "bun run lint && bun run typecheck && bun test && bun run build"
   },
   "engines": {
-    "bun": ">=1.1.0"
+    "node": ">=20"
   },
   "files": [
+    "dist",
     "src",
     "skills"
   ],
@@ -37,6 +61,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",
     "@types/bun": "latest",
+    "@types/node": "^26.1.1",
     "typescript": "^5.6.0"
   }
 }

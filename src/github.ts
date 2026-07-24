@@ -1,23 +1,9 @@
-import { execFileSync } from "node:child_process";
 import { extractClosingRefs, extractRefs } from "./refs.js";
+import type { GhTransport } from "./transport.js";
 import type { Edge, GraphNode, NodeKey, Via } from "./types.js";
 
-/** Run `gh` and return stdout. Throws on non-zero exit. */
-export function gh(args: string[]): string {
-  return execFileSync("gh", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-}
-
-/** Run a GraphQL query through `gh api graphql`. */
-export function graphql(query: string, vars: Record<string, string | number>): unknown {
-  const args = ["api", "graphql", "-f", `query=${query}`];
-  for (const [k, v] of Object.entries(vars)) {
-    args.push(typeof v === "number" ? "-F" : "-f", `${k}=${v}`);
-  }
-  return JSON.parse(gh(args));
-}
-
 /** One call: node state + title + body + comments + structural edges. */
-const NODE_QUERY = `query($owner:String!,$repo:String!,$n:Int!){
+export const NODE_QUERY = `query($owner:String!,$repo:String!,$n:Int!){
   repository(owner:$owner,name:$repo){
     issueOrPullRequest(number:$n){
       __typename
@@ -52,20 +38,48 @@ interface RefNode {
   repository?: { owner: { login: string }; name: string };
 }
 
+/** The subset of the GraphQL node payload the parser reads. */
+export interface RawNodeItem {
+  __typename: string;
+  title?: string;
+  state?: string;
+  url?: string;
+  body?: string;
+  author?: { login?: string };
+  isDraft?: boolean;
+  reviewDecision?: string | null;
+  mergeable?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  additions?: number;
+  deletions?: number;
+  changedFiles?: number;
+  files?: { nodes?: Array<{ path?: string }> };
+  reactions?: { totalCount?: number };
+  participants?: { totalCount?: number };
+  comments?: { totalCount?: number; nodes?: Array<{ body?: string; author?: { login?: string } }> };
+  closingIssuesReferences?: { nodes?: RefNode[] };
+  timelineItems?: {
+    nodes?: Array<{
+      createdAt?: string;
+      actor?: { login?: string };
+      source?: RefNode;
+      subject?: RefNode;
+    }>;
+  };
+}
+
 /** Build a NodeKey from a GraphQL Issue/PR reference, or null if incomplete. */
 export function refKey(o: RefNode | null | undefined): NodeKey | null {
   if (!o || o.number == null || !o.repository) return null;
   return `${o.repository.owner.login}/${o.repository.name}#${o.number}`;
 }
 
-/** How the crawl fetches one node. Injectable so the crawl can be tested offline. */
-export type FetchNode = (owner: string, repo: string, number: number, depth: number) => GraphNode;
-
-/** Fetch a single node and its edges from GitHub. */
-export const fetchNode: FetchNode = (owner, repo, number, depth) => {
-  const key = `${owner}/${repo}#${number}`;
-  const node: GraphNode = {
-    key,
+/** An unfetched placeholder, used for every failure mode so the crawl can
+ * carry on with a node whose state says what went wrong. */
+function blankNode(owner: string, repo: string, number: number, depth: number): GraphNode {
+  return {
+    key: `${owner}/${repo}#${number}`,
     owner,
     repo,
     number,
@@ -78,48 +92,20 @@ export const fetchNode: FetchNode = (owner, repo, number, depth) => {
     externalLinks: [],
     fetched: false,
   };
+}
 
-  let data: { data?: { repository?: { issueOrPullRequest?: unknown } } };
-  try {
-    data = graphql(NODE_QUERY, { owner, repo, n: number }) as typeof data;
-  } catch {
-    node.state = "FETCH_ERROR";
-    return node;
-  }
-  const item = data?.data?.repository?.issueOrPullRequest as
-    | {
-        __typename: string;
-        title?: string;
-        state?: string;
-        url?: string;
-        body?: string;
-        author?: { login?: string };
-        isDraft?: boolean;
-        reviewDecision?: string | null;
-        mergeable?: string;
-        createdAt?: string;
-        updatedAt?: string;
-        additions?: number;
-        deletions?: number;
-        changedFiles?: number;
-        files?: { nodes?: Array<{ path?: string }> };
-        reactions?: { totalCount?: number };
-        participants?: { totalCount?: number };
-        comments?: {
-          totalCount?: number;
-          nodes?: Array<{ body?: string; author?: { login?: string } }>;
-        };
-        closingIssuesReferences?: { nodes?: RefNode[] };
-        timelineItems?: {
-          nodes?: Array<{
-            createdAt?: string;
-            actor?: { login?: string };
-            source?: RefNode;
-            subject?: RefNode;
-          }>;
-        };
-      }
-    | undefined;
+/**
+ * Turn one GraphQL node payload into a GraphNode. Pure — no I/O, no transport,
+ * so the parsing is testable against a fixture and shared by every transport.
+ */
+export function parseNodeResponse(
+  item: RawNodeItem | null | undefined,
+  owner: string,
+  repo: string,
+  number: number,
+  depth: number,
+): GraphNode {
+  const node = blankNode(owner, repo, number, depth);
   if (!item) {
     node.state = "NOT_FOUND";
     return node;
@@ -160,7 +146,7 @@ export const fetchNode: FetchNode = (owner, repo, number, depth) => {
 
   const edgeMap = new Map<NodeKey, Edge>();
   const addEdge = (to: NodeKey | null, via: Via, by?: string, at?: string) => {
-    if (!to || to === key || edgeMap.has(to)) return; // first edge to a target wins
+    if (!to || to === node.key || edgeMap.has(to)) return; // first edge to a target wins
     edgeMap.set(to, { to, via, by, at });
   };
 
@@ -187,23 +173,48 @@ export const fetchNode: FetchNode = (owner, repo, number, depth) => {
   node.edges = [...edgeMap.values()];
   node.externalLinks = [...external];
   return node;
-};
+}
+
+/** How the crawl fetches one node. Injectable so the crawl can be tested offline. */
+export type FetchNode = (
+  owner: string,
+  repo: string,
+  number: number,
+  depth: number,
+) => Promise<GraphNode>;
+
+/**
+ * Bind a transport into a node fetcher.
+ *
+ * A transport-level throw is deliberately *not* swallowed here: if GitHub is
+ * rate limiting or the token is wrong, every node would come back empty and
+ * the resulting graph would look like a real, quiet backlog. Only a payload
+ * that GitHub answered — including a GraphQL error for a single node, which is
+ * how a deleted or private node reports itself — degrades to a placeholder.
+ */
+export function makeFetchNode(transport: GhTransport): FetchNode {
+  return async (owner, repo, number, depth) => {
+    const data = (await transport.graphql(NODE_QUERY, { owner, repo, n: number })) as {
+      data?: { repository?: { issueOrPullRequest?: RawNodeItem } };
+      errors?: Array<{ message?: string }>;
+    };
+    const item = data?.data?.repository?.issueOrPullRequest;
+    if (!item && data?.errors?.length) {
+      const node = blankNode(owner, repo, number, depth);
+      node.state = "FETCH_ERROR";
+      return node;
+    }
+    return parseNodeResponse(item, owner, repo, number, depth);
+  };
+}
 
 /** Resolve seed issue numbers from a repo label. */
-export function labelSeeds(repo: string, label: string): number[] {
-  const out = gh([
-    "issue",
-    "list",
-    "--repo",
-    repo,
-    "--label",
-    label,
-    "--state",
-    "open",
-    "--limit",
-    "100",
-    "--json",
-    "number",
-  ]);
-  return (JSON.parse(out) as Array<{ number: number }>).map((x) => x.number);
+export async function labelSeeds(
+  transport: GhTransport,
+  repo: string,
+  label: string,
+  limit = 100,
+): Promise<number[]> {
+  const hits = await transport.search(`repo:${repo} label:"${label}" is:open`, limit);
+  return hits.map((h) => h.number);
 }

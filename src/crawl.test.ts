@@ -5,7 +5,7 @@ import type { Edge, GraphNode, NodeKey } from "./types.js";
 
 /** Build an offline FetchNode from a fixture of key -> outgoing edge targets. */
 function fakeFetch(graph: Record<NodeKey, Array<Partial<Edge> & { to: NodeKey }>>): FetchNode {
-  return (owner, repo, number, depth) => {
+  return async (owner, repo, number, depth) => {
     const key = `${owner}/${repo}#${number}`;
     const edges: Edge[] = (graph[key] ?? []).map((e) => ({ via: "text", ...e }));
     return {
@@ -34,20 +34,20 @@ const opts = (over: Partial<Parameters<typeof crawl>[1]> = {}) => ({
 });
 
 describe("crawl", () => {
-  test("follows edges and dedupes cycles", () => {
+  test("follows edges and dedupes cycles", async () => {
     const fetch = fakeFetch({
       "o/r#1": [{ to: "o/r#2" }],
       "o/r#2": [{ to: "o/r#1" }], // cycle back
     });
-    const { nodes } = crawl([{ owner: "o", repo: "r", number: 1 }], opts(), fetch);
+    const { nodes } = await crawl([{ owner: "o", repo: "r", number: 1 }], opts(), fetch);
     expect([...nodes.keys()].sort()).toEqual(["o/r#1", "o/r#2"]);
   });
 
-  test("respects the node cap and records what it dropped", () => {
+  test("respects the node cap and records what it dropped", async () => {
     const fetch = fakeFetch({
       "o/r#1": [{ to: "o/r#2" }, { to: "o/r#3" }],
     });
-    const { nodes, cappedOut } = crawl(
+    const { nodes, cappedOut } = await crawl(
       [{ owner: "o", repo: "r", number: 1 }],
       opts({ maxNodes: 2 }),
       fetch,
@@ -56,10 +56,10 @@ describe("crawl", () => {
     expect(cappedOut.size).toBeGreaterThan(0);
   });
 
-  test("hub guard fetches but does not expand a high-degree node", () => {
+  test("hub guard fetches but does not expand a high-degree node", async () => {
     const hubEdges = Array.from({ length: 5 }, (_, i) => ({ to: `o/r#${100 + i}` }));
     const fetch = fakeFetch({ "o/r#1": [{ to: "o/r#2" }], "o/r#2": hubEdges });
-    const { nodes } = crawl(
+    const { nodes } = await crawl(
       [{ owner: "o", repo: "r", number: 1 }],
       opts({ hubThreshold: 3 }),
       fetch,
@@ -69,25 +69,25 @@ describe("crawl", () => {
     expect(nodes.has("o/r#100")).toBe(false);
   });
 
-  test("fetches cross-repo refs one hop but does not expand them", () => {
+  test("fetches cross-repo refs one hop but does not expand them", async () => {
     const fetch = fakeFetch({
       "o/r#1": [{ to: "other/x#9" }],
       "other/x#9": [{ to: "other/x#10" }],
     });
-    const { nodes } = crawl([{ owner: "o", repo: "r", number: 1 }], opts(), fetch);
+    const { nodes } = await crawl([{ owner: "o", repo: "r", number: 1 }], opts(), fetch);
     expect(nodes.has("other/x#9")).toBe(true); // fetched
     expect(nodes.has("other/x#10")).toBe(false); // not expanded
   });
 });
 
 describe("components", () => {
-  test("groups connected nodes and separates disjoint ones", () => {
+  test("groups connected nodes and separates disjoint ones", async () => {
     const fetch = fakeFetch({
       "o/r#1": [{ to: "o/r#2" }],
       "o/r#2": [],
       "o/r#9": [],
     });
-    const { nodes } = crawl(
+    const { nodes } = await crawl(
       [
         { owner: "o", repo: "r", number: 1 },
         { owner: "o", repo: "r", number: 9 },

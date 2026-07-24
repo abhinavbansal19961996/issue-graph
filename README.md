@@ -104,12 +104,63 @@ Runs are saved in `~/.gh-graph/`. A later run over the same starting points show
 
 With `--cluster`, the CLI prints a prompt and compact payload for the calling agent. The agent does the root-cause analysis in its own context. The CLI does not need an API key. `--cluster-run` can call a headless `claude` or `codex` process for unattended runs.
 
+## Use as a library
+
+The graph logic is separate from the code that talks to GitHub, so the same
+crawl runs from a machine with an authenticated `gh` and from a server that
+only has a token. You pick the transport.
+
+```ts
+import { classify, crawl, fileOverlaps, makeFetchNode, prioritize } from "gh-graph";
+import { httpTransport } from "gh-graph/transport/http";
+
+const transport = httpTransport({ token: process.env.GITHUB_TOKEN! });
+
+const { nodes } = await crawl(
+  [{ owner: "vercel-labs", repo: "portless", number: 352 }],
+  { maxDepth: 2, maxNodes: 80, hubThreshold: 12, primaryRepo: { owner: "vercel-labs", repo: "portless" } },
+  makeFetchNode(transport),
+);
+
+classify(nodes);
+const ranked = prioritize(nodes, new Date());
+const dupes = fileOverlaps(nodes);
+```
+
+Entry points:
+
+| Import | What it needs |
+| --- | --- |
+| `gh-graph` | Nothing. Types, crawl, classify, prioritize, overlaps, renderers. No Node builtins, so it bundles anywhere. |
+| `gh-graph/transport/http` | `fetch` and a token. Retries on 5xx, honors `retry-after` and the rate-limit reset, caps requests in flight. |
+| `gh-graph/transport/shell` | An authenticated `gh` on `PATH`. What the CLI uses. |
+| `gh-graph/snapshot` | A writable filesystem. |
+| `gh-graph/cluster` | A `claude` or `codex` binary. |
+
+`token` also accepts a function, sync or async, so a short-lived credential can
+be resolved per request.
+
+A transport failure throws rather than degrading to an empty graph. This
+matters for unattended runs: a rate-limited crawl that swallowed its errors
+would report a quiet backlog instead of a failure, which is worse than no
+report. A reference to a node that no longer exists is not a transport failure
+and still degrades to a single `FETCH_ERROR` node.
+
 ## Develop
 
 ```bash
 bun test
 bun run typecheck
 bun run lint
+bun run build
+```
+
+`scripts/verify-transports.ts` crawls one seed through both transports and
+compares the graphs. It needs the network, so it is a script rather than a
+test. Run it after touching either transport.
+
+```bash
+bun run scripts/verify-transports.ts 25 vercel-labs/agent-browser 2
 ```
 
 ## Use with Claude Code
