@@ -1,7 +1,7 @@
 ---
 name: xref
 description: Snapshot the reference graph of a GitHub PR or issue and trace every linked PR, cross-referenced issue, and mention across repos. Use before working an issue/PR to see its whole graph first (the review-full-pr-issue-graph rule); to find orphan, superseded, competing, or duplicate PRs; to see who mentioned or linked it; to survey a backlog by root-cause cluster; to rank a backlog by discussion heat (comments, participants, reactions, inbound links, time open) and pick the most impactful issue to fix next; to spot two PRs that touch the same files; to catch a PR that says "fixes #N" but won't auto-close; or to re-check what changed since the last snapshot. Trigger words include xref, map this PR/issue, trace references, what links to this, who mentioned this, find orphans, duplicate PRs, survey backlog, prioritize backlog, what to fix first, most impactful issues.
-compatibility: Requires the global `xref` command (install with `bun add -g @vercel-labs/xref`; source at github.com/vercel-labs/xref), plus `gh` (authenticated), `bun`, and network access for the GitHub API. Snapshots persist under ~/.xref/. Clustering runs in the calling agent's context, or shells out to `claude`/`codex` with --cluster-run.
+compatibility: Requires the `xref` command on PATH. Not published to a registry: install from source with `bun install && bun link` in a checkout of the xref repo. Also needs `gh` (authenticated), `bun`, and network access for the GitHub API. Snapshots persist under ~/.xref/. Clustering runs in the calling agent's context, or shells out to `claude`/`codex` with --cluster-run.
 ---
 
 # xref
@@ -14,8 +14,19 @@ Take a **snapshot** of everything a GitHub PR/issue connects to, so no **orphan*
    ```bash
    xref <url|number> --repo owner/repo [--depth N] [--cluster] [--prioritize]
    ```
-   Multi-seed / backlog survey: `--seeds 297,343,352` or `--label tailscale`. Add `--prioritize` when the ask is "what should I fix first".
+   Multi-seed / backlog survey: `--seeds 1,2,3` or `--label <label>`. Add `--prioritize` when the ask is "what should I fix first". `xref --help` lists every flag.
    Done when the CLI has printed the Nodes list and the orphan checklist.
+
+   Map the ask onto the invocation:
+
+   | The user asks | Run |
+   | --- | --- |
+   | "what's attached to this issue/PR", "check before I fix it" | `xref <n> --repo <o/r> --depth 2` |
+   | "what should I fix first", "most impactful issues" | `xref --label <label> --repo <o/r> --prioritize` |
+   | "which PRs are duplicating each other" | `xref --seeds <n,n,n> --repo <o/r>` and read the overlap section |
+   | "which issues have no PR" / "which have competing PRs" | `xref --label <label> --repo <o/r>` and read the orphan checklist and flags |
+   | "cluster my backlog by root cause" | `xref --seeds <n,n,n> --repo <o/r> --cluster` |
+   | "what changed since last time" | re-run the same seeds; the snapshot diff is automatic |
 
 2. **Surface the orphans and hazards.** Relay the orphan checklist to the user, most-actionable first:
    - ⚠️ **SUPERSEDED** PRs — a merged PR already shipped this work; candidate to close *with credit*.

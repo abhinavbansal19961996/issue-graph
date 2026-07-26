@@ -7,16 +7,20 @@
  * token, and a flaky network failure should not read as a broken build. Run it
  * by hand after touching either transport.
  *
- *   bun run scripts/verify-transports.ts 1602 vercel-labs/agent-browser
+ *   bun run scripts/verify-transports.ts 352 owner/repo 2
+ *
+ * Pick a seed with a busy graph. A two-node graph proves almost nothing; the
+ * interesting cases are a deleted reference and a hub, which only show up once
+ * the crawl is more than a hop deep.
  */
 import { crawl, makeFetchNode } from "../src/index.js";
 import { httpTransport } from "../src/transports/http.js";
 import { gh, shellTransport } from "../src/transports/shell.js";
 import type { GraphNode } from "../src/types.js";
 
-const [numberArg, repoArg = "vercel-labs/agent-browser", depthArg = "1"] = process.argv.slice(2);
-if (!numberArg) {
-  console.error("usage: verify-transports.ts <number> [owner/repo] [depth]");
+const [numberArg, repoArg, depthArg = "2"] = process.argv.slice(2);
+if (!numberArg || !repoArg) {
+  console.error("usage: verify-transports.ts <number> <owner/repo> [depth]");
   process.exit(1);
 }
 const [owner, repo] = repoArg.split("/");

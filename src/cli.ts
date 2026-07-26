@@ -21,8 +21,27 @@ import type { GhTransport } from "./transport.js";
 import { shellTransport } from "./transports/shell.js";
 import type { Seed } from "./types.js";
 
-const USAGE =
-  "usage: xref <url|number|--seeds a,b,c|--label L> [--repo owner/repo] [--depth N] [--max-nodes N] [--hub-threshold N] [--prioritize] [--cluster] [--cluster-run claude|codex] [--json out.json] [--html out.html] [--no-snapshot]";
+const USAGE = `usage: xref <url|number> --repo owner/repo [options]
+       xref --seeds 1,2,3 --repo owner/repo [options]
+       xref --label bug --repo owner/repo [options]
+
+  --repo owner/repo   required for a bare number, --seeds, or --label
+  --depth N           same-repo recursion depth (default 2); cross-repo refs
+                      are fetched one hop and not expanded
+  --seeds a,b,c       multi-seed backlog survey; adds connected components
+  --label L           seed from every open issue carrying this label
+  --max-nodes N       stop after this many nodes (default 80)
+  --hub-threshold N   fetch but do not expand a node with more refs than this
+                      (default 12), so one tracking issue cannot pull the
+                      whole tracker
+  --prioritize        rank open nodes by discussion heat
+  --cluster           print a root-cause clustering prompt for your agent
+  --cluster-run A     run that prompt through 'claude' or 'codex' instead
+  --json PATH         write the machine-readable graph
+  --html PATH         write a self-contained HTML explorer
+  --clusters PATH     group the explorer by agent-named clusters
+  --no-snapshot       do not persist this run to ~/.xref/
+  -h, --help          show this`;
 
 interface Args {
   seed: string;
@@ -39,6 +58,7 @@ interface Args {
   clusterRun: string;
   noSnapshot: boolean;
   prioritize: boolean;
+  help: boolean;
 }
 
 export function parseArgs(argv: string[]): Args {
@@ -57,10 +77,12 @@ export function parseArgs(argv: string[]): Args {
     clusterRun: "",
     noSnapshot: false,
     prioritize: false,
+    help: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--repo") a.repo = argv[++i];
+    if (arg === "--help" || arg === "-h") a.help = true;
+    else if (arg === "--repo") a.repo = argv[++i];
     else if (arg === "--depth") a.depth = Number(argv[++i]);
     else if (arg === "--json") a.jsonOut = argv[++i];
     else if (arg === "--html") a.htmlOut = argv[++i];
@@ -75,6 +97,9 @@ export function parseArgs(argv: string[]): Args {
       a.cluster = true;
       a.clusterRun = argv[++i];
     } else if (arg === "--no-snapshot") a.noSnapshot = true;
+    // An unrecognized flag used to fall through to the seed, so a typo became
+    // "Cannot parse seed: --hlep" — and `--help` crashed the same way.
+    else if (arg.startsWith("-")) throw new Error(`unknown flag: ${arg}\n\n${USAGE}`);
     else a.seed = arg;
   }
   return a;
@@ -102,6 +127,10 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const args = parseArgs(argv);
+  if (args.help) {
+    console.log(USAGE);
+    return;
+  }
   const transport = shellTransport();
   const seeds = await resolveSeeds(args, transport);
   if (!seeds.length) {

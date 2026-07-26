@@ -3,12 +3,13 @@
  * and rendering. Nothing here imports a Node builtin, so it bundles for any
  * runtime.
  *
- * The parts that do touch the machine are separate entry points, so that
- * importing the core never drags them in:
- *   @vercel-labs/xref/transport/shell  — `gh` shell-out (needs node:child_process)
- *   @vercel-labs/xref/transport/http   — fetch + token
- *   @vercel-labs/xref/snapshot         — on-disk snapshots (needs node:fs)
- *   @vercel-labs/xref/cluster          — shells out to a coding agent
+ * The two transports are separate entry points, so importing the core never
+ * drags in `node:child_process`:
+ *   ./transports/shell.js  — `gh` shell-out
+ *   ./transports/http.js   — fetch + token
+ *
+ * `snapshot.ts` (node:fs) and `cluster.ts` (node:child_process) are CLI
+ * internals with no external consumer, so they are deliberately not exported.
  */
 export * from "./classify.js";
 export * from "./crawl.js";

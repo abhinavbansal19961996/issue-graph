@@ -26,4 +26,17 @@ describe("parseArgs", () => {
     expect(parseArgs(["--seeds", "1,2,3", "--repo", "o/r"]).seedsCsv).toBe("1,2,3");
     expect(parseArgs(["--label", "bug", "--repo", "o/r"]).label).toBe("bug");
   });
+
+  // `--help` used to fall through to the seed and die in parseSeed with
+  // "Cannot parse seed: --help", which is a poor first impression.
+  test("--help and -h ask for usage instead of becoming the seed", () => {
+    expect(parseArgs(["--help"]).help).toBe(true);
+    expect(parseArgs(["-h"]).help).toBe(true);
+    expect(parseArgs(["--help"]).seed).toBe("");
+  });
+
+  test("an unknown flag is an error, not a seed", () => {
+    expect(() => parseArgs(["--hlep"])).toThrow(/unknown flag: --hlep/);
+    expect(() => parseArgs(["352", "--repo", "o/r", "--depht", "2"])).toThrow(/unknown flag/);
+  });
 });

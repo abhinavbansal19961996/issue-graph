@@ -1,58 +1,119 @@
 # xref
 
-`@vercel-labs/xref` finds the full reference graph around a GitHub pull request or issue. It follows comments, mentions, linked pull requests, cross-referenced issues, closing references, and external links across repositories.
+Find the full reference graph around a GitHub pull request or issue: comments, mentions, linked pull requests, cross-referenced issues, closing references, and external links, recursively and across repositories.
 
-Use it before you work on an issue or PR. It shows related work that a normal text search can miss.
+Run it before you work on an issue or PR. A text search finds what mentions your issue; this finds what is *attached* to it, which is where the duplicate PR and the already-merged fix hide.
 
-The CLI crawls, classifies, attributes, and saves the graph. It can also generate a prompt for an agent to group related nodes by root cause.
+The CLI crawls, classifies, attributes, and saves the graph. Everything it reports is derived from the data, not guessed by a model. It can also hand the one genuinely semantic step, grouping nodes by root cause, back to a calling agent.
 
 ## Install
 
-The CLI needs [Bun](https://bun.sh) and an authenticated [`gh`](https://cli.github.com).
+Not published to a registry. Install from source. You need [Bun](https://bun.sh) and an authenticated [`gh`](https://cli.github.com).
 
 ```bash
-bun add -g @vercel-labs/xref
-```
-
-To work on it instead:
-
-```bash
-git clone https://github.com/vercel-labs/xref && cd xref
+git clone <this repo> xref && cd xref
 bun install
 bun link
 ```
 
-Either way you get an `xref` command on your `PATH`.
+That puts an `xref` command on your `PATH`. `xref --help` lists every flag.
 
-Using it as a library needs neither Bun nor `gh` — see [Use as a library](#use-as-a-library).
+Using it as a library needs neither Bun nor `gh`, only `fetch` and a token. See [Use as a library](#use-as-a-library).
 
-## Run a graph
+## What you would ask it
 
-```bash
-xref <url|number> --repo owner/repo [options]
-xref 352 --repo vercel-labs/portless
-xref https://github.com/vercel-labs/portless/pull/352
-```
+Each of these is a real question, and the command that answers it. Substitute your own `owner/repo`.
 
-Survey related issues from multiple starting points:
+**"Before I fix this issue, what else is attached to it?"**
 
 ```bash
-xref --seeds 297,343,352 --repo vercel-labs/portless
-xref --label tailscale --repo vercel-labs/portless
+xref 260 --repo owner/repo --depth 2
 ```
 
-Rank the open nodes by discussion heat — most comments, participants, reactions, inbound references, and time open first. Useful for "fix the most impactful issues" triage instead of inbox zero:
+**"Which of these open PRs are duplicating each other?"**
+The answer comes from changed-file overlap, not title similarity.
 
 ```bash
-xref --label tailscale --repo vercel-labs/portless --prioritize
+xref --seeds 64,246,281 --repo owner/repo
 ```
 
-Generate a root-cause clustering prompt, or run it with a headless agent:
+**"Which issues have no PR, and which have several fighting over them?"**
+The orphan checklist names the untracked issues; the `competing` flag marks an issue that more than one open PR claims to close.
 
 ```bash
-xref 352 --repo vercel-labs/portless --cluster
-xref 352 --repo vercel-labs/portless --cluster-run claude
+xref --label bug --repo owner/repo
 ```
+
+**"What should I fix first?"**
+Ranks open nodes by discussion heat, so triage is by impact rather than by inbox order.
+
+```bash
+xref --label bug --repo owner/repo --prioritize
+```
+
+**"Cluster my backlog by root cause."**
+Prints a prompt for the calling agent, which clusters by edge structure and shared defect. `--cluster-run` shells out to a headless agent instead, for unattended use.
+
+```bash
+xref --seeds 64,246,281 --repo owner/repo --cluster
+```
+
+**"What changed since I last looked?"**
+Every run is saved. The next run over the same starting points diffs against it and reports new nodes, state changes, and new references, with who made them.
+
+```bash
+xref 260 --repo owner/repo --depth 2   # again, a day later
+```
+
+## What the output looks like
+
+Three sections carry most of the value. All of the output below is real, from a
+crawl of a public repository.
+
+Open PRs whose changed files intersect. A pair here is a likely duplicate or a
+guaranteed merge conflict, and a pair that also closes the same issue is a
+near-certain duplicate:
+
+```
+## Possible duplicate / overlapping PRs (shared files)
+
+- owner/repo#238 ⇄ owner/repo#366
+      shares 3 file(s): src/cli-utils.test.ts, src/cli-utils.ts, src/cli.ts
+- owner/repo#278 ⇄ owner/repo#360
+      shares 2 file(s): src/proxy.test.ts, src/proxy.ts
+```
+
+Every reachable open node, with a verdict. "Referenced by merged work" is the
+one worth reading twice: someone shipped something adjacent and may have
+already fixed it:
+
+```
+## Orphan checklist (classified)
+
+- [ ] owner/repo#226 issue 🟢 OPEN — Recommended setup for monorepo projects?
+      → OPEN issue — related, untracked
+- [ ] owner/repo#39 issue 🟢 OPEN — Feature Request: Add mDNS support for local HTTPS development
+      → OPEN issue — referenced by merged work, verify if resolved
+- [ ] other-org/other-repo#97 issue 🟢 OPEN — Support custom hostname for URL compatibility
+      → OPEN issue — related, untracked
+```
+
+With `--prioritize`, the ranking prints the raw signals next to each score, so
+you can overrule the order. The score is a sort key, not a verdict:
+
+```
+## Triage priority (open nodes, most discussion/frustration first)
+
+1. **owner/repo#120** issue — Feature Request: Add stealth mode via env variable  _(score 113.3)_
+    - 13 comments · 12 participants · 14 reactions · 8 inbound refs · open 190d
+2. **owner/repo#25** issue — Bug: "System cannot find the path specified" on install  _(score 104.4)_
+    - 18 comments · 16 participants · 0 reactions · 6 inbound refs · open 193d
+
+_score = comments×3 + participants×2 + reactions×2 + inbound×2 + min(12, daysOpen/30)_
+```
+
+Two issues open for six months, each with a dozen people in the thread. That is
+the case for ranking by heat instead of by date.
 
 ## Options
 
@@ -95,7 +156,7 @@ The `--clusters` file is either an array of `{ label, root_cause?, members: [{ k
 
 ## How it finds references
 
-`@vercel-labs/xref` uses two sources:
+`xref` uses two sources:
 
 - text references in issue and pull request bodies and comments, including `#123`, `owner/repo#123`, and URLs
 - structural references from the GitHub GraphQL API, including cross-references, connected events, and closing references
@@ -115,38 +176,45 @@ With `--cluster`, the CLI prints a prompt and compact payload for the calling ag
 ## Use as a library
 
 The graph logic is separate from the code that talks to GitHub, so the same
-crawl runs from a machine with an authenticated `gh` and from a server that
-only has a token. You pick the transport.
+crawl runs from a laptop with an authenticated `gh` and from a server that only
+has a token. You pick the transport.
+
+Since this is not on a registry, depend on it from a local checkout, a git
+dependency, or a workspace. The package name is `@vercel-labs/xref`, so the
+import specifiers below work once it resolves.
 
 ```ts
 import { classify, crawl, fileOverlaps, makeFetchNode, prioritize } from "@vercel-labs/xref";
 import { httpTransport } from "@vercel-labs/xref/transport/http";
 
+const repo = { owner: "owner", repo: "repo" };
 const transport = httpTransport({ token: process.env.GITHUB_TOKEN! });
 
 const { nodes } = await crawl(
-  [{ owner: "vercel-labs", repo: "portless", number: 352 }],
-  { maxDepth: 2, maxNodes: 80, hubThreshold: 12, primaryRepo: { owner: "vercel-labs", repo: "portless" } },
+  [{ ...repo, number: 352 }],
+  { maxDepth: 2, maxNodes: 80, hubThreshold: 12, primaryRepo: repo },
   makeFetchNode(transport),
 );
 
 classify(nodes);
-const ranked = prioritize(nodes, new Date());
-const dupes = fileOverlaps(nodes);
+const ranked = prioritize(nodes, new Date());   // heat ranking
+const dupes = fileOverlaps(nodes);              // duplicate/conflict pairs
 ```
 
-Entry points:
+Three entry points, one per set of requirements:
 
 | Import | What it needs |
 | --- | --- |
-| `@vercel-labs/xref` | Nothing. Types, crawl, classify, prioritize, overlaps, renderers. No Node builtins, so it bundles anywhere. |
+| `@vercel-labs/xref` | Nothing. Types, crawl, classify, prioritize, overlaps, renderers. No Node builtins, so it bundles anywhere, including an edge runtime. |
 | `@vercel-labs/xref/transport/http` | `fetch` and a token. Retries on 5xx, honors `retry-after` and the rate-limit reset, caps requests in flight. |
 | `@vercel-labs/xref/transport/shell` | An authenticated `gh` on `PATH`. What the CLI uses. |
-| `@vercel-labs/xref/snapshot` | A writable filesystem. |
-| `@vercel-labs/xref/cluster` | A `claude` or `codex` binary. |
+
+Snapshot persistence and the cluster shell-out are CLI internals and are
+deliberately not exported: they need a filesystem and a subprocess, and a
+library consumer wanting either is better served owning its own.
 
 `token` also accepts a function, sync or async, so a short-lived credential can
-be resolved per request.
+be resolved per request rather than held for the life of the process.
 
 A transport failure throws rather than degrading to an empty graph. This
 matters for unattended runs: a rate-limited crawl that swallowed its errors
@@ -168,9 +236,12 @@ compares the graphs. It needs the network, so it is a script rather than a
 test. Run it after touching either transport.
 
 ```bash
-bun run scripts/verify-transports.ts 25 vercel-labs/agent-browser 2
+bun run scripts/verify-transports.ts <number> <owner/repo> <depth>
 ```
 
-## Use with Claude Code
+## Use with a coding agent
 
-The `@vercel-labs/xref` Claude Code skill wraps this CLI. It lets an agent run the graph by intent and then cluster the result.
+`skills/xref/` is a Claude Code skill that wraps this CLI. It lets an agent run
+the graph from intent ("what should I fix first in this repo", "does this issue
+already have a PR") and then perform the clustering step in its own context.
+Symlink or copy it into your agent's skills directory.
