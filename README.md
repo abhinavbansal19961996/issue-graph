@@ -11,7 +11,7 @@ The CLI crawls, classifies, attributes, and saves the graph. Everything it repor
 Not published to a registry. Install from source. You need [Bun](https://bun.sh) and an authenticated [`gh`](https://cli.github.com).
 
 ```bash
-git clone <this repo> xref && cd xref
+gh repo clone vercel-labs/xref && cd xref
 bun install
 bun link
 ```
