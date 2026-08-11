@@ -141,7 +141,7 @@ Each run produces:
 - for each pull request, a triage summary: review decision, draft/conflicting state, `+adds/-dels across Nf`, and last-updated date (staleness)
 - a "possible duplicate / overlapping PRs" section pairing open PRs that touch the same files — the objective duplication and merge-conflict signal
 - derived flags on nodes: `competing` (more than one open PR closes an issue) and `claims-close-no-link` (a `fixes #N` that has no closing link, so a merge won't auto-close it)
-- an orphan checklist that identifies open, superseded, competing, and flagged nodes, including pull requests that may be ready to close
+- an orphan checklist that identifies open, superseded, possibly superseded, competing, and flagged nodes, including open pull requests structurally linked to an issue closed by later merged work
 - connected components in multi-seed mode, grouped by root-cause cluster
 - with `--prioritize`, a triage-priority ranking of the open nodes by discussion heat — comment count, distinct participants, reactions, inbound references, and time open — with the raw signals printed next to each score so a human can override the order
 - a diff from the previous snapshot, including new nodes, state changes, and new references

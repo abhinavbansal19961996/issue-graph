@@ -7,6 +7,7 @@ const meta = (over: Partial<PullRequestMeta> = {}): PullRequestMeta => ({
   reviewDecision: "REVIEW_REQUIRED",
   mergeable: "UNKNOWN",
   createdAt: "2026-04-01T00:00:00Z",
+  mergedAt: "",
   updatedAt: "2026-04-24T00:00:00Z",
   additions: 9,
   deletions: 5,
@@ -100,6 +101,22 @@ describe("render", () => {
     expect(md).toContain("DRAFT");
     expect(md).toContain("updated 2026-04-24");
     expect(md).toContain("⚠ competes with o/r#2");
+  });
+
+  test("prioritizes possibly superseded PRs in the orphan checklist", () => {
+    const nodes = new Map([
+      ["o/r#1", node("o/r#1", { depth: 0, state: "MERGED", kind: "PullRequest" })],
+      [
+        "o/r#2",
+        node("o/r#2", {
+          kind: "PullRequest",
+          verdict:
+            "POSSIBLY SUPERSEDED by merged o/r#1 via closed issue o/r#3 — verify scope, then close with credit",
+        }),
+      ],
+    ]);
+    const md = render(nodes, ["o/r#1"], false);
+    expect(md).toContain("- [ ] ⚠️  o/r#2 PR");
   });
 
   test("renders the overlap section for PRs sharing files", () => {

@@ -27,6 +27,7 @@ export interface PullRequestMeta {
   mergeable: string;
   /** ISO timestamp the PR was opened. */
   createdAt: string;
+  mergedAt: string;
   /** ISO timestamp of the last update — the staleness signal. */
   updatedAt: string;
   additions: number;

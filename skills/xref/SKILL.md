@@ -30,6 +30,7 @@ Take a **snapshot** of everything a GitHub PR/issue connects to, so no **orphan*
 
 2. **Surface the orphans and hazards.** Relay the orphan checklist to the user, most-actionable first:
    - ⚠️ **SUPERSEDED** PRs — a merged PR already shipped this work; candidate to close *with credit*.
+   - ⚠️ **POSSIBLY SUPERSEDED** PRs — the PR is structurally linked to an issue that a later merged PR closed; verify scope, then close with credit if the merged work covers it.
    - ⚠ **competing** PRs — two open PRs close the same issue; pick one, credit both.
    - ⚠ **claims-close-no-link** — a PR says `fixes #N` (often in the title) but has no structural closing link, so merging it silently won't auto-close the issue.
    - Then the remaining open related issues/PRs.
@@ -62,7 +63,7 @@ Take a **snapshot** of everything a GitHub PR/issue connects to, so no **orphan*
 - **PR triage metadata.** Each PR node carries `review`, draft/mergeable state, `+adds/-dels across Nf`, `updated <date>` (staleness), and the file paths it touches — all in the one node query, no extra requests.
 - **Heat signals.** Every node also carries comment count, distinct participants, reactions, and createdAt in the same query — the inputs to `--prioritize`.
 - **File-overlap detection.** Open PRs whose changed-file sets intersect are paired as possible duplicates/conflicts; a shared closing issue promotes the pair to a likely duplicate.
-- **Derived flags.** `competing` (>1 open PR closes an issue) and `claims-close-no-link` (a `fixes #N` that won't auto-close) are computed and attached per node.
+- **Derived triage.** Open PRs are marked superseded when they share a closing target with merged work, or possibly superseded when they are structurally linked to an issue closed by a later merged PR. `competing` (>1 open PR closes an issue) and `claims-close-no-link` (a `fixes #N` that won't auto-close) are computed and attached per node.
 - **Attribution.** Each node carries its author and who mentioned it; each edge carries the actor and date.
 - **State is fetched live per node** (OPEN/CLOSED/MERGED), never trusted from a cross-reference event, which can be stale.
 - **Snapshot + diff.** Every run persists to `~/.xref/`; the next run diffs against the last one.

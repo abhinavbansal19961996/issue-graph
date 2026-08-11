@@ -65,6 +65,8 @@ describe("parseNodeResponse", () => {
         title: "fixes #42",
         state: "OPEN",
         body: "",
+        createdAt: "2026-01-01T00:00:00Z",
+        mergedAt: null,
         files: { nodes: [{ path: "src/a.ts" }, { path: "src/b.ts" }] },
         changedFiles: 2,
       },
@@ -74,6 +76,7 @@ describe("parseNodeResponse", () => {
       0,
     );
     expect(node.pr?.files).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(node.pr?.mergedAt).toBe("");
     expect(node.claimsClose).toEqual(["o/r#42"]);
   });
 

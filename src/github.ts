@@ -19,7 +19,7 @@ export const NODE_QUERY = `query($owner:String!,$repo:String!,$n:Int!){
       }
       ... on PullRequest {
         title state url body author{login}
-        isDraft reviewDecision mergeable createdAt updatedAt additions deletions changedFiles
+        isDraft reviewDecision mergeable createdAt mergedAt updatedAt additions deletions changedFiles
         reactions{ totalCount }
         participants(first:1){ totalCount }
         files(first:100){ nodes{ path } }
@@ -50,6 +50,7 @@ export interface RawNodeItem {
   reviewDecision?: string | null;
   mergeable?: string;
   createdAt?: string;
+  mergedAt?: string | null;
   updatedAt?: string;
   additions?: number;
   deletions?: number;
@@ -130,6 +131,7 @@ export function parseNodeResponse(
       reviewDecision: item.reviewDecision ?? "",
       mergeable: item.mergeable ?? "UNKNOWN",
       createdAt: item.createdAt ?? "",
+      mergedAt: item.mergedAt ?? "",
       updatedAt: item.updatedAt ?? "",
       additions: item.additions ?? 0,
       deletions: item.deletions ?? 0,

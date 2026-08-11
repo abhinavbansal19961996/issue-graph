@@ -1,5 +1,12 @@
 import type { GraphNode, NodeKey } from "./types.js";
 
+export function isSupersededVerdict(verdict?: string): boolean {
+  return (
+    verdict?.startsWith("SUPERSEDED") === true ||
+    verdict?.startsWith("POSSIBLY SUPERSEDED") === true
+  );
+}
+
 /**
  * Tag each non-seed node with a verdict. The load-bearing case is a
  * **superseded** open PR: it closes an issue that a different *merged* PR also
@@ -7,13 +14,13 @@ import type { GraphNode, NodeKey } from "./types.js";
  */
 export function classify(nodes: Map<NodeKey, GraphNode>): void {
   // issue -> PRs that close it, with each PR's state
-  const closers = new Map<NodeKey, Array<{ pr: NodeKey; state: string }>>();
+  const closers = new Map<NodeKey, Array<{ pr: NodeKey; state: string; mergedAt: string }>>();
   for (const n of nodes.values()) {
     if (n.kind !== "PullRequest") continue;
     for (const e of n.edges) {
       if (e.via !== "closes") continue;
       const list = closers.get(e.to) ?? [];
-      list.push({ pr: n.key, state: n.state });
+      list.push({ pr: n.key, state: n.state, mergedAt: n.pr?.mergedAt ?? "" });
       closers.set(e.to, list);
     }
   }
@@ -29,9 +36,14 @@ export function classify(nodes: Map<NodeKey, GraphNode>): void {
         const other = (closers.get(e.to) ?? []).find((c) => c.pr !== n.key && c.state === "MERGED");
         if (other) supersededBy = other.pr;
       }
-      n.verdict = supersededBy
-        ? `SUPERSEDED by merged ${supersededBy} — candidate to close (with credit)`
-        : "OPEN PR — untriaged";
+      if (supersededBy) {
+        n.verdict = `SUPERSEDED by merged ${supersededBy} — candidate to close (with credit)`;
+      } else {
+        const possible = possibleSuperseder(n, nodes, closers);
+        n.verdict = possible
+          ? `POSSIBLY SUPERSEDED by merged ${possible.pr} via closed issue ${possible.issue} — verify scope, then close with credit`
+          : "OPEN PR — untriaged";
+      }
     } else if (n.kind === "Issue" && n.state === "OPEN") {
       const byMerged = [...nodes.values()].some(
         (p) =>
@@ -48,6 +60,42 @@ export function classify(nodes: Map<NodeKey, GraphNode>): void {
   flag(nodes, closers);
 }
 
+function possibleSuperseder(
+  openPr: GraphNode,
+  nodes: Map<NodeKey, GraphNode>,
+  closers: Map<NodeKey, Array<{ pr: NodeKey; state: string; mergedAt: string }>>,
+): { pr: NodeKey; issue: NodeKey } | undefined {
+  const openedAt = Date.parse(openPr.pr?.createdAt ?? "");
+  if (!Number.isFinite(openedAt)) return undefined;
+  const relatedIssues = new Set<NodeKey>();
+  for (const e of openPr.edges) {
+    if (e.via === "cross-ref" || e.via === "connected") relatedIssues.add(e.to);
+  }
+  for (const n of nodes.values()) {
+    if (n.kind !== "Issue") continue;
+    if (
+      n.edges.some((e) => e.to === openPr.key && (e.via === "cross-ref" || e.via === "connected"))
+    ) {
+      relatedIssues.add(n.key);
+    }
+  }
+
+  for (const issue of [...relatedIssues].sort()) {
+    if (nodes.get(issue)?.state !== "CLOSED") continue;
+    const merged = (closers.get(issue) ?? [])
+      .filter(
+        (c) =>
+          c.pr !== openPr.key &&
+          c.state === "MERGED" &&
+          Number.isFinite(Date.parse(c.mergedAt)) &&
+          Date.parse(c.mergedAt) >= openedAt,
+      )
+      .sort((a, b) => a.pr.localeCompare(b.pr))[0];
+    if (merged) return { pr: merged.pr, issue };
+  }
+  return undefined;
+}
+
 /**
  * Attach derived triage flags to nodes:
  * - **competing**: an issue closed by more than one OPEN PR (duplicate effort).
@@ -56,7 +104,7 @@ export function classify(nodes: Map<NodeKey, GraphNode>): void {
  */
 function flag(
   nodes: Map<NodeKey, GraphNode>,
-  closers: Map<NodeKey, Array<{ pr: NodeKey; state: string }>>,
+  closers: Map<NodeKey, Array<{ pr: NodeKey; state: string; mergedAt: string }>>,
 ): void {
   const add = (n: GraphNode, f: string) => {
     n.flags ??= [];

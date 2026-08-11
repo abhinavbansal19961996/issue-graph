@@ -10,6 +10,7 @@ function pr(key: NodeKey, files: string[], over: Partial<GraphNode> = {}): Graph
     reviewDecision: "",
     mergeable: "UNKNOWN",
     createdAt: "",
+    mergedAt: "",
     updatedAt: "",
     additions: 0,
     deletions: 0,

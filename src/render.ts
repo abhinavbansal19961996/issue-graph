@@ -1,3 +1,4 @@
+import { isSupersededVerdict } from "./classify.js";
 import { components } from "./crawl.js";
 import { fileOverlaps } from "./overlaps.js";
 import type { GraphNode, NodeKey, Via } from "./types.js";
@@ -93,8 +94,8 @@ export function render(
   }
 
   const orphans = ordered.filter((n) => !seedKeys.includes(n.key) && n.state === "OPEN");
-  const superseded = orphans.filter((n) => n.verdict?.startsWith("SUPERSEDED"));
-  const rest = orphans.filter((n) => !n.verdict?.startsWith("SUPERSEDED"));
+  const superseded = orphans.filter((n) => isSupersededVerdict(n.verdict));
+  const rest = orphans.filter((n) => !isSupersededVerdict(n.verdict));
   const externals = [...new Set(ordered.flatMap((n) => n.externalLinks))];
   out.push("\n## Orphan checklist (classified)\n");
   if (!orphans.length && !externals.length) out.push("- (none)");

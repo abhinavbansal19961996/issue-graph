@@ -1,3 +1,4 @@
+import { isSupersededVerdict } from "./classify.js";
 import { components } from "./crawl.js";
 import { fileOverlaps } from "./overlaps.js";
 import type { GraphNode, NodeKey } from "./types.js";
@@ -185,7 +186,7 @@ function buildModel(
     nodes: nodes.size,
     openPRs: openPRs.length,
     openIssues: all.filter((n) => n.state === "OPEN" && n.kind === "Issue").length,
-    superseded: openPRs.filter((n) => n.verdict?.startsWith("SUPERSEDED")).length,
+    superseded: openPRs.filter((n) => isSupersededVerdict(n.verdict)).length,
     competing: openPRs.filter((n) => n.flags?.some((f) => f.startsWith("competes"))).length,
     noClose: openPRs.filter((n) => n.flags?.some((f) => f.includes("no closing link"))).length,
     overlaps: fileOverlaps(nodes).length,

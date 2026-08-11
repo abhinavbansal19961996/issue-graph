@@ -7,6 +7,7 @@ const meta = (files: string[]): PullRequestMeta => ({
   reviewDecision: "REVIEW_REQUIRED",
   mergeable: "UNKNOWN",
   createdAt: "2026-04-01T00:00:00Z",
+  mergedAt: "",
   updatedAt: "2026-04-24T00:00:00Z",
   additions: 9,
   deletions: 5,
