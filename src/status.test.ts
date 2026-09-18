@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import {
   buildStatusReport,
   collectStatus,
@@ -372,9 +372,11 @@ describe("status inventory", () => {
     await collectStatus(t, { repos: ["o/a", "o/b", "o/c"], authors: ["ctate"], concurrency: 2 });
     expect(peak).toBe(2);
     for (const concurrency of [0, 33, 1.5])
-      expect(
+      await expect(
         collectStatus(t, { repos: ["o/r"], authors: ["ctate"], concurrency }),
       ).rejects.toThrow();
-    expect(collectStatus(t, { repos: ["o/r"], authors: ["ctate"], maxPages: 0 })).rejects.toThrow();
+    await expect(
+      collectStatus(t, { repos: ["o/r"], authors: ["ctate"], maxPages: 0 }),
+    ).rejects.toThrow();
   });
 });

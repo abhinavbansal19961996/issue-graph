@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { renderHtml } from "./html.js";
 import type { GraphNode, NodeKey, PullRequestMeta } from "./types.js";
 

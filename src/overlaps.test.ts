@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { fileOverlaps } from "./overlaps.js";
 import type { Edge, GraphNode, NodeKey, PullRequestMeta } from "./types.js";
 

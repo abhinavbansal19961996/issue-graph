@@ -1,4 +1,4 @@
-import { expect, describe as suite, test } from "bun:test";
+import { expect, describe as suite, test } from "vitest";
 import { decodeStdout, describe } from "./shell.js";
 
 /** Shape of the error `execFileSync` throws on a non-zero exit. */

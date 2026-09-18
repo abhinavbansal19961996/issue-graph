@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { buildStatusReport, STATUS_METRICS, type StatusPullRequest } from "./status.js";
 import { compareStatusSnapshots } from "./status-history.js";
 import { renderStatusHistory } from "./status-history-render.js";

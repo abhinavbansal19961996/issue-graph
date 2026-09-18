@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import type { ReconcileSnapshot } from "./snapshot.js";
 import { diffReconcileSnapshots, diffSnapshots, reconcileSnapshotDir } from "./snapshot.js";
 import type { Snapshot } from "./types.js";
@@ -44,7 +44,7 @@ describe("diffSnapshots", () => {
 
 describe("reconcile history", () => {
   test("uses a stable repository directory independent of seeds", () => {
-    expect(reconcileSnapshotDir("o", "r")).toEndWith("/.issue-graph/reconcile-o-r");
+    expect(reconcileSnapshotDir("o", "r").endsWith("/.issue-graph/reconcile-o-r")).toBe(true);
   });
 
   test("reports safe deltas and suppresses resolved items when coverage regresses", () => {

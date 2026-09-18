@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { describe, expect, test } from "vitest";
 import { parseStatusArgs } from "./status-cli.js";
 
 const skill = readFileSync(new URL("../skills/issue-graph/SKILL.md", import.meta.url), "utf8");

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { ISSUE_GRAPH_SCHEMA } from "./schema.js";
 
 describe("ISSUE_GRAPH_SCHEMA", () => {

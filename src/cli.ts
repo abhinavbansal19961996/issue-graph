@@ -1,5 +1,6 @@
-#!/usr/bin/env bun
 import { readFileSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { classify, fillMentionedBy } from "./classify.js";
 import { clusterPayload, clusterPrompt, runAgent } from "./cluster.js";
 import { components, crawl } from "./crawl.js";
@@ -25,7 +26,7 @@ import {
   writeReconcileSnapshot,
   writeSnapshot,
 } from "./snapshot.js";
-import { runStatus, StatusUsageError } from "./status-cli.js";
+import { runStatus } from "./status-cli.js";
 import type { GhTransport } from "./transport.js";
 import { shellTransport } from "./transports/shell.js";
 import type { NodeKey, Seed } from "./types.js";
@@ -170,8 +171,12 @@ async function resolveSeeds(a: Args, transport: GhTransport): Promise<Seed[]> {
   return [parseSeed(a.seed, a.repo)];
 }
 
-async function main(): Promise<void> {
-  const argv = process.argv.slice(2);
+async function writeOutput(file: string, content: string): Promise<void> {
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, content, "utf8");
+}
+
+export async function runCli(argv = process.argv.slice(2)): Promise<void> {
   if (!argv.length) {
     console.error(USAGE);
     process.exitCode = 2;
@@ -325,7 +330,7 @@ async function main(): Promise<void> {
     process.stderr.write(`\nsnapshot saved: ${file}\n`);
   }
   if (args.jsonOut) {
-    Bun.write(
+    await writeOutput(
       args.jsonOut,
       JSON.stringify(
         {
@@ -347,19 +352,10 @@ async function main(): Promise<void> {
     const clusters = args.clustersFile
       ? (JSON.parse(readFileSync(args.clustersFile, "utf8")) as ClustersConfig)
       : undefined;
-    Bun.write(
+    await writeOutput(
       args.htmlOut,
       renderHtml(nodes, seedKeys, `${primary.owner}/${primary.repo}`, clusters),
     );
     process.stderr.write(`wrote ${args.htmlOut}\n`);
   }
-}
-
-if (import.meta.main) {
-  main().catch((err) => {
-    // A transport failure must not look like an empty backlog: exit non-zero so
-    // a scripted caller notices.
-    console.error(err instanceof Error ? err.message : String(err));
-    process.exit(err instanceof UsageError || err instanceof StatusUsageError ? 2 : 1);
-  });
 }

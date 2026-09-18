@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { setTimeout } from "node:timers/promises";
+import { describe, expect, test } from "vitest";
 import { components, crawl } from "./crawl.js";
 import type { FetchNode } from "./github.js";
 import type { Edge, GraphNode, NodeKey } from "./types.js";
@@ -86,7 +87,7 @@ describe("crawl", () => {
     const fetch: FetchNode = async (owner, repo, number, depth) => {
       active++;
       peak = Math.max(peak, active);
-      await Bun.sleep(5);
+      await setTimeout(5);
       active--;
       return {
         key: `${owner}/${repo}#${number}`,

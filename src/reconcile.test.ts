@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { buildReconcileReport, renderReconcile } from "./reconcile.js";
 import type { GraphNode, NodeKey } from "./types.js";
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import {
   labelSeeds,
   makeFetchNode,
@@ -119,7 +119,7 @@ describe("makeFetchNode", () => {
         return [];
       },
     };
-    expect(makeFetchNode(boom)("o", "r", 1, 0)).rejects.toThrow("rate limited");
+    await expect(makeFetchNode(boom)("o", "r", 1, 0)).rejects.toThrow("rate limited");
   });
 });
 

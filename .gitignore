@@ -2,3 +2,9 @@ node_modules
 dist
 *.log
 .DS_Store
+.package-test-*/
+.next/
+.source/
+.vercel/
+*.tsbuildinfo
+apps/docs/test-results/

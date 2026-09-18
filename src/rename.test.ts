@@ -1,8 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { describe, expect, test } from "vitest";
+import { parse } from "yaml";
 import { ISSUE_GRAPH_SCHEMA } from "./index.js";
 import { reconcileSnapshotDir, snapshotDir } from "./snapshot.js";
 import { buildStatusReport } from "./status.js";
@@ -13,13 +15,14 @@ const root = new URL("../", import.meta.url);
 const pkg = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
 
 function run(args: string[]) {
-  const result = Bun.spawnSync([
+  const result = spawnSync(
     process.execPath,
-    fileURLToPath(new URL(pkg.bin["issue-graph"], root)),
-    ...args,
-  ]);
+    ["--import", "tsx", fileURLToPath(new URL("src/bin.ts", root)), ...args],
+    { cwd: fileURLToPath(root) },
+  );
+  if (result.error) throw result.error;
   return {
-    exit: result.exitCode,
+    exit: result.status,
     stdout: result.stdout.toString(),
     stderr: result.stderr.toString(),
   };
@@ -28,8 +31,9 @@ function run(args: string[]) {
 describe("issue-graph identity", () => {
   test("package metadata exposes only the canonical command and repository", () => {
     expect(pkg.name).toBe("@vercel-labs/issue-graph");
-    expect(pkg.private).toBe(true);
-    expect(pkg.bin).toEqual({ "issue-graph": "./src/cli.ts" });
+    expect(pkg.private).not.toBe(true);
+    expect(pkg.publishConfig.access).toBe("public");
+    expect(pkg.bin).toEqual({ "issue-graph": "./dist/bin.js" });
     expect(pkg.repository.url).toBe("git+https://github.com/vercel-labs/issue-graph.git");
     expect(pkg.homepage).toBe("https://github.com/vercel-labs/issue-graph#readme");
     expect(pkg.bugs.url).toBe("https://github.com/vercel-labs/issue-graph/issues");
@@ -39,7 +43,7 @@ describe("issue-graph identity", () => {
     for (const args of [["--help"], ["status", "--help"]]) {
       const result = run(args);
       expect(result.exit).toBe(0);
-      expect(result.stdout).toStartWith("usage: issue-graph ");
+      expect(result.stdout.startsWith("usage: issue-graph ")).toBe(true);
       expect(result.stderr).toBe("");
     }
     const result = run(["schema"]);
@@ -53,10 +57,10 @@ describe("issue-graph identity", () => {
   test("the only packaged skill has matching directory and frontmatter names", () => {
     expect(readdirSync(new URL("skills/", root))).toEqual(["issue-graph"]);
     const skill = readFileSync(new URL("skills/issue-graph/SKILL.md", root), "utf8");
-    const metadata = Bun.YAML.parse(skill.split("---")[1]) as Record<string, unknown>;
+    const metadata = parse(skill.split("---")[1]) as Record<string, unknown>;
     expect(metadata.name).toBe("issue-graph");
-    expect(metadata.description).toBeString();
-    expect(metadata.compatibility).toBeString();
+    expect(metadata.description).toBeTypeOf("string");
+    expect(metadata.compatibility).toBeTypeOf("string");
   });
 
   test("graph and reconciliation use the canonical history directory", () => {
@@ -69,19 +73,26 @@ describe("issue-graph identity", () => {
 
   test("status uses ISSUE_GRAPH_HOME and defaults to the canonical root", () => {
     for (const home of ["/tmp/issue-graph-custom", ""]) {
-      const result = Bun.spawnSync(
+      const result = spawnSync(
+        process.execPath,
         [
-          process.execPath,
+          "--import",
+          "tsx",
+          "--input-type=module",
           "-e",
           'import { statusHistoryDir } from "./src/status-store.ts"; console.log(statusHistoryDir({ repos: ["o/r"], authors: ["alice"] }));',
         ],
         { cwd: fileURLToPath(root), env: { ...process.env, ISSUE_GRAPH_HOME: home } },
       );
-      expect(result.exitCode).toBe(0);
+      if (result.error) throw result.error;
+      expect(result.status).toBe(0);
       expect(result.stderr.toString()).toBe("");
-      expect(result.stdout.toString().trim()).toStartWith(
-        `${join(home || join(homedir(), ".issue-graph"), "status")}/`,
-      );
+      expect(
+        result.stdout
+          .toString()
+          .trim()
+          .startsWith(`${join(home || join(homedir(), ".issue-graph"), "status")}/`),
+      ).toBe(true);
     }
   });
 

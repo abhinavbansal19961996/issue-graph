@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { classify, fillMentionedBy } from "./classify.js";
 import type { Edge, GraphNode, NodeKey } from "./types.js";
 

@@ -9,8 +9,14 @@
     "noEmit": true,
     "resolveJsonModule": true,
     "verbatimModuleSyntax": true,
-    "types": ["bun"]
+    "types": ["node"]
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*",
+    "tests/**/*.ts",
+    "vitest.config.ts",
+    "scripts/build.ts",
+    "scripts/verify-package.ts"
+  ],
   "exclude": ["node_modules"]
 }

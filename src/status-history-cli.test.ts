@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { runNode } from "../tests/node-process.js";
 import { buildStatusReport, type StatusPullRequest } from "./status.js";
 import { parseStatusArgs, runStatus } from "./status-cli.js";
 import { toStatusSnapshot } from "./status-snapshot.js";
@@ -209,20 +210,13 @@ describe("status history CLI", () => {
     ).rejects.toThrow("Invalid status snapshot: scope");
     expect(calls).toBe(0);
 
-    const command = Bun.spawn(
-      [process.execPath, "src/cli.ts", "status", ...args, "--since", file],
-      {
-        cwd: join(import.meta.dir, ".."),
-        env: { ...process.env, PATH: temp, ISSUE_GRAPH_HOME: home },
-        stdout: "pipe",
-        stderr: "pipe",
-      },
-    );
-    const [exit, stdout, stderr] = await Promise.all([
-      command.exited,
-      new Response(command.stdout).text(),
-      new Response(command.stderr).text(),
-    ]);
+    const {
+      code: exit,
+      stdout,
+      stderr,
+    } = await runNode(["src/bin.ts", "status", ...args, "--since", file], {
+      env: { ...process.env, PATH: temp, ISSUE_GRAPH_HOME: home },
+    });
     expect(exit).toBe(1);
     expect(stdout).toBe("");
     expect(
@@ -274,13 +268,12 @@ describe("status history CLI", () => {
   });
 
   test("actual CLI honors ISSUE_GRAPH_HOME and rejects conflicts before accessing GitHub", async () => {
-    const command = Bun.spawn(
-      ["bun", "run", "src/cli.ts", "status", ...args, "--since", "last", "--save"],
-      { env: { ...process.env, ISSUE_GRAPH_HOME: home }, stdout: "pipe", stderr: "pipe" },
-    );
-    expect(await command.exited).toBe(1);
-    expect(await new Response(command.stderr).text()).toContain("No prior status snapshot");
-    expect(await new Response(command.stdout).text()).toBe("");
+    const command = await runNode(["src/bin.ts", "status", ...args, "--since", "last", "--save"], {
+      env: { ...process.env, ISSUE_GRAPH_HOME: home },
+    });
+    expect(command.code).toBe(1);
+    expect(command.stderr).toContain("No prior status snapshot");
+    expect(command.stdout).toBe("");
     expect(existsSync(home)).toBe(false);
   });
 });

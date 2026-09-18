@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { prioritize, renderPriority, score } from "./priority.js";
 import type { Edge, GraphNode, HeatMeta, NodeKey } from "./types.js";
 

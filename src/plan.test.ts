@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { buildPlanReport, renderPlan } from "./plan.js";
 import { prioritize } from "./priority.js";
 import { buildReconcileReport } from "./reconcile.js";

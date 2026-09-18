@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "vitest";
 import { GhTransportError } from "../transport.js";
 import { httpTransport } from "./http.js";
 
@@ -49,7 +49,7 @@ describe("httpTransport", () => {
     const reset = Math.floor(Date.now() / 1000) + 3600;
     scriptFetch([err(403, { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(reset) })]);
     const t = httpTransport({ token: "x", maxBackoffMs: 1000 });
-    expect(t.graphql("query{}")).rejects.toThrow(/does not reset/);
+    await expect(t.graphql("query{}")).rejects.toThrow(/does not reset/);
   });
 
   test("a 401 fails immediately, without retries", async () => {

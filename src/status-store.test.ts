@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { runNode } from "../tests/node-process.js";
 import { buildStatusReport } from "./status.js";
 import type { StatusSnapshot } from "./status-history-types.js";
 import { toStatusSnapshot } from "./status-snapshot.js";
@@ -12,6 +13,16 @@ import {
   statusHistoryDir,
   writeStatusSnapshot,
 } from "./status-store.js";
+
+vi.mock("node:crypto", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:crypto")>();
+  return { ...actual, randomUUID: vi.fn(actual.randomUUID) };
+});
+
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return { ...actual, linkSync: vi.fn(actual.linkSync) };
+});
 
 const time = "2026-09-09T13:00:00.000Z";
 const scope = { repos: ["o/r", "o/empty"], authors: ["alice", "bob"] };
@@ -35,6 +46,7 @@ function snapshot(generatedAt = time): StatusSnapshot {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   temp = fs.mkdtempSync(join(tmpdir(), "issue-graph-status-store-"));
   home = join(temp, "issue-graph-home");
 });
@@ -139,10 +151,9 @@ describe("status history paths and reads", () => {
     expect(() => latestStatusSnapshot(scope, home)).toThrow(latest);
   });
 
-  test.skipIf(process.platform === "win32")(
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
     "permission-denied listing is not treated as missing history",
     () => {
-      if (process.getuid?.() === 0) return;
       const dir = statusHistoryDir(scope, home);
       fs.mkdirSync(dir, { recursive: true });
       fs.chmodSync(dir, 0o000);
@@ -193,7 +204,7 @@ describe("immutable status snapshot publication", () => {
     };
     const old = writeStatusSnapshot(baseline, home);
     fs.utimesSync(old, new Date("2099-01-01"), new Date("2099-01-01"));
-    expect(basename(old)).toStartWith("2026-09-09T12-00-00-000Z-");
+    expect(basename(old).startsWith("2026-09-09T12-00-00-000Z-")).toBe(true);
     expect(latestStatusSnapshot(scope, home)?.path).toBe(live);
   });
 
@@ -234,7 +245,7 @@ describe("immutable status snapshot publication", () => {
     fs.mkdirSync(dir, { recursive: true });
     const other = join(dir, ".another-writer.tmp");
     fs.writeFileSync(other, "someone else's pending capture");
-    const publish = spyOn(fs, "linkSync").mockImplementationOnce(() => {
+    const publish = vi.mocked(fs.linkSync).mockImplementationOnce(() => {
       const temps = fs.readdirSync(dir).filter((name) => name.endsWith(".tmp"));
       expect(temps).toHaveLength(2);
       expect(fs.readdirSync(dir).some((name) => name.endsWith(".json"))).toBe(false);
@@ -244,7 +255,7 @@ describe("immutable status snapshot publication", () => {
       expect(() => writeStatusSnapshot(snapshot(), home)).toThrow("publication failed");
       expect(publish).toHaveBeenCalledTimes(1);
     } finally {
-      publish.mockRestore();
+      publish.mockReset();
     }
     expect(fs.readdirSync(dir)).toEqual([basename(other)]);
     expect(fs.readFileSync(other, "utf8")).toBe("someone else's pending capture");
@@ -256,21 +267,21 @@ describe("immutable status snapshot publication", () => {
     const collision = "00000000-0000-4000-8000-000000000000";
     const other = join(dir, `.${collision}.tmp`);
     fs.writeFileSync(other, "other writer");
-    const uuid = spyOn(crypto, "randomUUID").mockReturnValueOnce(collision);
+    const uuid = vi.mocked(crypto.randomUUID).mockReturnValueOnce(collision);
     try {
       const path = writeStatusSnapshot(snapshot(), home);
       expect(readStatusSnapshot(path)).toEqual(snapshot());
       expect(fs.readFileSync(other, "utf8")).toBe("other writer");
       expect(fs.readdirSync(dir)).toHaveLength(2);
     } finally {
-      uuid.mockRestore();
+      uuid.mockReset();
     }
     const existing = writeStatusSnapshot(snapshot(), home);
     const id = basename(existing).slice("2026-09-09T13-00-00-000Z-".length, -5);
     const original = fs.readFileSync(existing, "utf8");
-    const duplicate = spyOn(crypto, "randomUUID").mockReturnValueOnce(
-      id as ReturnType<typeof crypto.randomUUID>,
-    );
+    const duplicate = vi
+      .mocked(crypto.randomUUID)
+      .mockReturnValueOnce(id as ReturnType<typeof crypto.randomUUID>);
     try {
       const path = writeStatusSnapshot(snapshot(), home);
       expect(path).not.toBe(existing);
@@ -279,23 +290,21 @@ describe("immutable status snapshot publication", () => {
         basename(other),
       ]);
     } finally {
-      duplicate.mockRestore();
+      duplicate.mockReset();
     }
   });
 
   test("separate concurrent processes safely publish captures with the same timestamp", async () => {
-    const module = new URL("./status-store.ts", import.meta.url).pathname;
+    const module = new URL("./status-store.ts", import.meta.url).href;
     const code = `import { writeStatusSnapshot } from ${JSON.stringify(module)}; process.stdout.write(writeStatusSnapshot(${JSON.stringify(snapshot())}, ${JSON.stringify(home)}));`;
     const children = Array.from({ length: 6 }, () =>
-      Bun.spawn([process.execPath, "--eval", code], { stdout: "pipe", stderr: "pipe" }),
+      runNode(["--input-type=module", "--eval", code]),
     );
-    const results = await Promise.all(
-      children.map(async (child) => ({
-        code: await child.exited,
-        path: await new Response(child.stdout).text(),
-        error: await new Response(child.stderr).text(),
-      })),
-    );
+    const results = (await Promise.all(children)).map((child) => ({
+      code: child.code,
+      path: child.stdout,
+      error: child.stderr,
+    }));
     expect(results.map((result) => ({ code: result.code, error: result.error }))).toEqual(
       Array.from({ length: 6 }, () => ({ code: 0, error: "" })),
     );

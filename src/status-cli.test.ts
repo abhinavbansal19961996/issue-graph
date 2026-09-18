@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
+import { runNode } from "../tests/node-process.js";
 import { parseArgs } from "./cli.js";
 import { parseStatusArgs, runStatus, StatusUsageError } from "./status-cli.js";
 import type { GhTransport } from "./transport.js";
@@ -149,27 +150,18 @@ describe("status output contract", () => {
   });
 
   test("actual binary dispatch advertises status, preserves graph --json PATH, and exits 2 for invalid status", async () => {
-    const help = Bun.spawn(["bun", "run", "src/cli.ts", "status", "--help"], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    expect(await help.exited).toBe(0);
-    expect(await new Response(help.stdout).text()).toContain("--view VIEW");
-    const schema = Bun.spawn(["bun", "run", "src/cli.ts", "schema"], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const data = JSON.parse(await new Response(schema.stdout).text());
-    expect(await schema.exited).toBe(0);
+    const help = await runNode(["src/bin.ts", "status", "--help"]);
+    expect(help.code).toBe(0);
+    expect(help.stdout).toContain("--view VIEW");
+    const schema = await runNode(["src/bin.ts", "schema"]);
+    const data = JSON.parse(schema.stdout);
+    expect(schema.code).toBe(0);
     expect(data.commands.status.localWrites).toEqual([
       "immutable snapshots under ISSUE_GRAPH_HOME/status (default ~/.issue-graph/status) only with --save",
     ]);
-    const bad = Bun.spawn(["bun", "run", "src/cli.ts", "status", "--repo", "o/r"], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    expect(await bad.exited).toBe(2);
-    expect(await new Response(bad.stdout).text()).toBe("");
-    expect(await new Response(bad.stderr).text()).toContain("requires --repo and --author");
+    const bad = await runNode(["src/bin.ts", "status", "--repo", "o/r"]);
+    expect(bad.code).toBe(2);
+    expect(bad.stdout).toBe("");
+    expect(bad.stderr).toContain("requires --repo and --author");
   });
 });

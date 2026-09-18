@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { buildStatusReport, type StatusPullRequest } from "./status.js";
 import type { StatusSnapshot } from "./status-history-types.js";
 import { parseStatusSnapshot, snapshotReport, toStatusSnapshot } from "./status-snapshot.js";
