@@ -2,11 +2,11 @@ import type { GraphNode, NodeKey } from "./types.js";
 
 /**
  * Files whose overlap is incidental, not evidence of duplicated work: docs,
- * changelogs, and lockfiles. Two PRs both editing `README.md` or `bun.lock`
+ * changelogs, and lockfiles. Two PRs both editing `README.md` or `pnpm-lock.yaml`
  * tells you nothing; two PRs both editing `src/cli.ts` is the real signal.
  */
 const INCIDENTAL =
-  /(?:^|\/)(?:README|CHANGELOG|LICENSE|CONTRIBUTING)[^/]*$|\.mdx?$|(?:^|\/)(?:bun\.lock|package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$/i;
+  /(?:^|\/)(?:README|CHANGELOG|LICENSE|CONTRIBUTING)[^/]*$|\.mdx?$|(?:^|\/)(?:[^/]+\.lock|package-lock\.json|pnpm-lock\.yaml)$/i;
 
 const isSignificant = (file: string): boolean => !INCIDENTAL.test(file);
 

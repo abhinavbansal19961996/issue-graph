@@ -50,6 +50,25 @@ describe("fileOverlaps", () => {
     expect(ov[0]).toMatchObject({ a: "o/r#1", b: "o/r#2", shared: ["src/b.ts"] });
   });
 
+  test("treats documentation and package-manager lockfiles as incidental", () => {
+    const files = [
+      "README.md",
+      "pnpm-lock.yaml",
+      "package-lock.json",
+      "yarn.lock",
+      "runtime.lock",
+      "Cargo.lock",
+    ];
+    expect(fileOverlaps(asMap([pr("o/r#1", files), pr("o/r#2", files)]))).toEqual([]);
+  });
+
+  test("does not mistake a source filename containing lock for a lockfile", () => {
+    const files = ["src/lock.ts", "src/runtime.lock.ts", "pnpm-lock.yaml"];
+    const overlap = fileOverlaps(asMap([pr("o/r#1", files), pr("o/r#2", files)]));
+    expect(overlap).toHaveLength(1);
+    expect(overlap[0].significant).toBe(2);
+  });
+
   test("marks a shared closing issue as a likely duplicate", () => {
     const nodes = asMap([
       pr("o/r#1", ["src/x.ts"], { edges: [closes("o/r#100")] }),
