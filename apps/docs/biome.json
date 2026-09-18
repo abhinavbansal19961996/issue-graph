@@ -1,0 +1,17 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
+  "root": false,
+  "extends": ["../../biome.json"],
+  "files": {
+    "includes": ["**", "!!.source", "!!.next", "!!next-env.d.ts"]
+  },
+  "css": {
+    "parser": { "tailwindDirectives": true }
+  },
+  "overrides": [
+    {
+      "includes": ["src/app/globals.css"],
+      "linter": { "rules": { "complexity": { "noImportantStyles": "off" } } }
+    }
+  ]
+}

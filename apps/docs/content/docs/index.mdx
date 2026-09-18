@@ -1,0 +1,35 @@
+---
+title: issue-graph documentation
+description: Inspect GitHub relationships, PR status, and backlog actions with bounded, model-free evidence.
+lastModified: 2026-09-18
+---
+
+## Start with the work in front of you
+
+`issue-graph` is a CLI and library for understanding related GitHub work before you implement, review, or clean up a backlog. It follows text mentions and structural links, retains attribution where available, and derives triage signals from the evidence it can read.
+
+Crawling, classification, status aggregation, and queue ordering require no model. Root-cause clustering is a separate, optional agent step.
+
+## Install before running examples
+
+The current supported path is a source build requiring access to the **INTERNAL** `vercel-labs/issue-graph` repository. The public npm `issue-graph@0.1.0` package is a “Coming soon” placeholder with no CLI executable. A functional unscoped release is pending; `pnpm dlx issue-graph` does not work for this tool yet.
+
+Follow [Get started](/docs/get-started) for prerequisites, authentication, and a first graph around the public [portless PR #427](https://github.com/vercel-labs/portless/pull/427).
+
+## Choose a workflow
+
+| Question | Start here |
+| --- | --- |
+| What is linked to this issue or PR? | [Graph](/docs/graph) |
+| How many open PRs do these authors have in these repositories? | [Status and history](/docs/status) |
+| What should we verify, review, or investigate next? | [Backlog reconciliation and planning](/docs/backlog) |
+| How should a coding agent use the tool? | [Agents and skill setup](/docs/agents) |
+| How do I embed graph or status collection? | [Library](/docs/library) |
+| What gets read, saved, or shared? | [Permissions and privacy](/docs/security) |
+| Which flags and output formats are supported? | [Command reference](/docs/reference) |
+
+## Evidence, not a merge gate
+
+Shared files, closing relationships, and review states help decide what to inspect. They do not prove that two fixes are duplicates, an issue is resolved, or a PR is ready to merge. Graphs are bounded, inaccessible references remain uncertain, and status reports incomplete coverage explicitly.
+
+The CLI does not mutate GitHub. Graph and reconcile commands save local snapshots by default; status saves only with `--save`, and plan does not save snapshots. Exports and agent prompts can include private metadata. Read the [security guidance](/docs/security) before sharing them.

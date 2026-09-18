@@ -1,0 +1,91 @@
+---
+title: Get started
+description: Install from an authorized source checkout, authenticate GitHub, and inspect your first public pull request.
+lastModified: 2026-09-18
+---
+
+## What is available today
+
+The supported installation is from source. `vercel-labs/issue-graph` is **INTERNAL** on GitHub, so cloning requires repository access. Public access to a demo repository does not grant access to the tool's source. If you cannot access the source repository, wait for a functional public release; there is no working public npm CLI installation to substitute today.
+
+You need:
+
+- Node.js 20 or later to run the compiled CLI. For the source workspace and its development tools, use Node.js 20.19.x or 22.12+; Node.js 24 is recommended.
+- [pnpm](https://pnpm.io) to install dependencies and build the source checkout.
+- [GitHub CLI](https://cli.github.com) (`gh`) on your `PATH`.
+- GitHub authentication with access to the repositories you query.
+
+## Authenticate and install from source
+
+Authenticate before cloning the internal repository:
+
+```bash
+gh auth login
+gh auth status
+gh repo clone vercel-labs/issue-graph
+cd issue-graph
+pnpm install --frozen-lockfile
+pnpm build
+pnpm link --global
+issue-graph --help
+```
+
+`pnpm link --global` exposes the checkout's `issue-graph` executable. Ensure pnpm's global binary directory is on your `PATH`; use `pnpm bin --global` to locate it. pnpm manages development dependencies and scripts; the built CLI runs on Node.js.
+
+The CLI uses the credentials available to `gh`. Private repositories and cross-repository references still require permission, including any organization SSO authorization. Do not paste tokens into command examples or commit them to configuration.
+
+## Get your first real result
+
+Inspect the neighborhood of [portless PR #427](https://github.com/vercel-labs/portless/pull/427):
+
+```bash
+issue-graph 427 --repo vercel-labs/portless --depth 1 --no-snapshot
+```
+
+The equivalent URL form is:
+
+```bash
+issue-graph https://github.com/vercel-labs/portless/pull/427 --depth 1 --no-snapshot
+```
+
+Graph mode prints Markdown, even in a pipe. The report includes fetched nodes, relationships, and derived cleanup candidates. Actual results change with GitHub evidence; this guide does not promise particular counts or findings.
+
+Before acting, inspect failed or unfetched nodes, the node-cap section, and hubs not expanded. `--depth 1` bounds the neighborhood; `--no-snapshot` avoids saving a new history file. Neither makes the graph exhaustive.
+
+## Save an explorer when you want a file
+
+```bash
+issue-graph 427 --repo vercel-labs/portless --depth 1 --no-snapshot --json graph.json --html graph.html
+```
+
+Open `graph.html` in your browser. These are explicit local writes even with `--no-snapshot`. Inspect their contents before sharing them, especially after querying private repositories.
+
+## Registry installation after a functional release
+
+Publication is pending. The existing public unscoped `issue-graph@0.1.0` is ctate's “Coming soon” placeholder and has no `bin`; it is not this working CLI. Do not use it as an installation check.
+
+Only after a functional unscoped release is confirmed, the intended commands are:
+
+```bash
+pnpm dlx issue-graph --help
+pnpm add --global issue-graph
+```
+
+After that release, a registry installation would be updated with `pnpm add --global issue-graph@latest`. No future version is specified here. The local checkout still uses the package name `@vercel-labs/issue-graph`; these docs do not claim a published scoped release.
+
+All workflow examples use the installed `issue-graph` command. Installing a skill is separate from installing that executable.
+
+## Update a source installation
+
+From your source checkout, after preserving any local changes:
+
+```bash
+git pull --ff-only
+pnpm install --frozen-lockfile
+pnpm build
+pnpm link --global
+```
+
+If the command is unavailable, check your `PATH` and source build. For GitHub access errors, check `gh auth status` and repository permissions. An inaccessible reference does not mean the work is closed or absent.
+
+Continue with [Graph](/docs/graph), [Status](/docs/status), or [Agents](/docs/agents).

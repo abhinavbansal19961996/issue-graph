@@ -1,0 +1,14 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "index",
+    "get-started",
+    "graph",
+    "status",
+    "backlog",
+    "agents",
+    "library",
+    "security",
+    "reference"
+  ]
+}

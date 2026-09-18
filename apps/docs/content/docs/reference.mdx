@@ -1,0 +1,112 @@
+---
+title: Command reference
+description: Current command shapes, supported flags, output formats, local writes, and exit-code limits.
+lastModified: 2026-09-18
+---
+
+## Inspect the installed contract
+
+All runtime examples use the installed `issue-graph` command. Today that means an authorized [source installation](/docs/get-started), not the public npm placeholder.
+
+```bash
+issue-graph --help
+issue-graph status --help
+issue-graph reconcile --help
+issue-graph plan --help
+issue-graph schema
+```
+
+`schema` emits the agent-facing JSON contract, including command formats, `githubMutations`, `localWrites`, defaults, and limits. Its schema version is independent of the package version. Inspect the installed contract before building a durable integration.
+
+## Command shapes
+
+```bash
+issue-graph 427 --repo vercel-labs/portless --depth 1 --no-snapshot
+issue-graph https://github.com/vercel-labs/portless/pull/427 --no-snapshot
+issue-graph --seeds 64,246,281 --repo owner/repo --no-snapshot
+issue-graph --label bug --repo owner/repo --prioritize --no-snapshot
+issue-graph status --repo vercel-labs/portless --author ctate,Railly --json
+issue-graph reconcile --repo owner/repo --format json --no-snapshot
+issue-graph plan --repo owner/repo --format json
+issue-graph schema
+```
+
+Graph is the default mode; there is no literal `issue-graph graph` subcommand. Replace `owner/repo`, label names, and seed numbers with your actual scope. Use one seed-selection form per invocation.
+
+## Graph selection and crawl controls
+
+| Flag | Meaning |
+| --- | --- |
+| `--repo owner/repo` | Required for bare numbers, `--seeds`, `--label`, reconcile, and plan |
+| `--seeds a,b,c` | Explicit comma-separated seeds; multi-seed output includes components |
+| `--label L` | Seed from labeled open issues, within the discovery budget |
+| `--depth N` | Same-repo recursion depth, default 2; cross-repo references fetched one hop, not expanded |
+| `--max-nodes N` | Total nodes, default 80; integer from 1 to 1000 |
+| `--hub-threshold N` | Do not expand high-degree non-seed nodes above this number of references, default 12 |
+| `--concurrency N` | Node requests in flight, default 4; integer from 1 to 32 |
+| `--prioritize` | Append the discussion-heat ranking in graph Markdown |
+| `--no-snapshot` | Skip new graph/reconcile history files; not a blanket ban on local I/O |
+| `-h`, `--help` | Print usage |
+
+Reconcile and plan normally discover the open backlog from `--repo` and share the crawl controls. Search pages are 100 results, with a 1000-result ceiling. Graph per-node connections are bounded separately; see [Graph](/docs/graph).
+
+## Graph exports and clustering
+
+| Flag | Meaning |
+| --- | --- |
+| `--json PATH` | Write a graph JSON file; Markdown remains on stdout |
+| `--html PATH` | Write a self-contained graph HTML explorer |
+| `--clusters PATH` | Read cluster/cleanup labels for the HTML explorer |
+| `--cluster` | Print a clustering task for the caller's agent |
+| `--cluster-run claude` | Launch installed Claude headlessly with the clustering task |
+| `--cluster-run codex` | Launch installed Codex headlessly with the clustering task |
+
+Use these export/clustering options with graph mode. Reconcile/plan emit their machine reports using `--format json`, not graph's `--json PATH`. Plan rejects `--html`. `--no-snapshot` does not suppress graph export paths or sandbox external agents.
+
+## Status flags
+
+| Flag | Meaning |
+| --- | --- |
+| `--repo owner/repo` | Required, repeatable repository scope |
+| `--author login[,login]` | Required, repeatable/comma-separated author scope |
+| `--view authors|projects|prs` | Human view, default `authors` |
+| `--format auto|table|markdown|json` | Default `auto`: table in a TTY, JSON in a pipe |
+| `--json` | Boolean stdout JSON shorthand, no filename; conflicts with table/Markdown format |
+| `--concurrency N` | Concurrent repositories, default 4; integer from 1 to 32 |
+| `--max-pages N` | Pages per connection, default 100; integer from 1 to 1000 |
+| `--save` | Opt into an immutable local capture |
+| `--since last|PATH` | Compare with the latest same-scope capture or an explicit snapshot/export |
+| `--no-snapshot` | Forbid snapshot writes; conflicts with `--save` |
+| `-h`, `--help` | Print status-specific usage |
+
+Status PR pages contain 50 PRs; assignees and reviewer requests are also paginated. Scope normalization is case-insensitive. `--view` does not remove evidence fields from the JSON report. See [Status](/docs/status) for unknown counts, comparison provenance, and terminal-state verification.
+
+## Formats and persistence
+
+| Mode | stdout | Local persistence |
+| --- | --- | --- |
+| Graph | Markdown regardless of TTY; graph JSON only via `--json PATH` | Snapshots by default; explicit JSON/HTML paths write independently |
+| Reconcile | `--format auto|json|markdown`; auto is Markdown in TTY, JSON in pipe | Repository history by default unless `--no-snapshot` |
+| Plan | Same format selection as reconcile | No snapshots |
+| Status | `--format auto|table|markdown|json`; auto is table in TTY, JSON in pipe | Only with `--save` |
+| Schema | JSON | None |
+
+Reconcile, plan, and status reports currently have `schemaVersion: 1`. Graph JSON currently has no report version field. It contains `seeds`, `depth`, `nodes`, `cappedOut`, `components`, `overlaps`, and `priorities`. Do not assume identical report shapes across modes.
+
+Status history adds `history` on comparison and `snapshot` on save. Graph/reconcile can read earlier history even with `--no-snapshot`. Progress and file-write notices go to stderr. See [Security](/docs/security) for sensitive-data handling.
+
+## Environment
+
+| Variable | Scope |
+| --- | --- |
+| `NO_COLOR` | Disables status styling |
+| `CI` | Suppresses status color when set |
+| `ISSUE_GRAPH_HOME` | Status storage root; default `~/.issue-graph` |
+
+Graph/reconcile continue to use `~/.issue-graph/` in the current source. GitHub CLI authentication is handled by `gh`; HTTP library callers supply their own token. No model configuration is required for the deterministic workflows.
+
+## Exit codes and coverage
+
+The general contract uses `0` for success, `1` for runtime failure, and `2` for usage errors. Status additionally returns `1` for incomplete inventory or comparison, while retaining useful partial evidence when available.
+
+Graph, reconcile, and plan can emit bounded or incomplete reports without treating coverage loss as a process failure. Inspect graph fetch state and `cappedOut`, reconcile `limits`, and plan's provisional/blocked evidence before making a completeness claim. Exit `0` is not merge readiness or proof that no work was missed.

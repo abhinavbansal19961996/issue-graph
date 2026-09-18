@@ -1,0 +1,136 @@
+---
+title: Library
+description: Use the runtime-agnostic core with a local source dependency, a GitHub CLI transport, or an HTTP transport.
+lastModified: 2026-09-18
+---
+
+## Separate the core from GitHub access
+
+The core exports graph types, crawling, classification, ranking, rendering, reconciliation, planning, and status helpers. It does not import Node built-ins. I/O comes from the transport you pass to collectors. Importing the core does not select credentials or automatically start a crawl.
+
+The CLI's filesystem snapshot store and headless clustering runner are not core exports. In a server integration, own your storage, authorization, retention, and agent policy explicitly.
+
+## Use the source package today
+
+The repository is INTERNAL, so the current path requires source access. Build the authorized checkout following [Get started](/docs/get-started), then reference it from a consumer using a local dependency. The local package name remains `@vercel-labs/issue-graph`:
+
+```json
+{
+  "dependencies": {
+    "@vercel-labs/issue-graph": "file:../issue-graph"
+  }
+}
+```
+
+Run `pnpm install` in the consumer after the checkout has been built to resolve the local dependency. A local dependency is not a registry release. These docs do not claim that the scoped package is published.
+
+| Current source import | Runtime requirements |
+| --- | --- |
+| `@vercel-labs/issue-graph` | Runtime-agnostic core; caller supplies transport and inputs |
+| `@vercel-labs/issue-graph/transport/shell` | Node-compatible child processes and authenticated `gh` on `PATH` |
+| `@vercel-labs/issue-graph/transport/http` | `fetch` and a GitHub token |
+
+## Crawl with HTTP
+
+This example is for the built local source dependency. Provide the token through your server's secret environment, not browser code:
+
+```ts
+import {
+  classify,
+  crawl,
+  fileOverlaps,
+  fillMentionedBy,
+  makeFetchNode,
+  prioritize,
+} from "@vercel-labs/issue-graph";
+import { httpTransport } from "@vercel-labs/issue-graph/transport/http";
+
+const token = process.env.GITHUB_TOKEN;
+if (!token) throw new Error("GITHUB_TOKEN is required");
+
+const repo = { owner: "vercel-labs", repo: "portless" };
+const transport = httpTransport({ token });
+const { nodes, cappedOut } = await crawl(
+  [{ ...repo, number: 427 }],
+  {
+    maxDepth: 1,
+    maxNodes: 80,
+    hubThreshold: 12,
+    concurrency: 4,
+    primaryRepo: repo,
+  },
+  makeFetchNode(transport),
+);
+
+classify(nodes);
+fillMentionedBy(nodes);
+const priorities = prioritize(nodes, new Date());
+const overlaps = fileOverlaps(nodes);
+const unfetched = [...nodes.values()].filter((node) => !node.fetched);
+console.log({ priorities, overlaps, cappedOut: [...cappedOut], unfetched });
+```
+
+Retain `cappedOut` and unfetched nodes when presenting results. Successful collection does not mean every relationship was visible. The same depth, hub, and per-node limits described in [Graph](/docs/graph) apply.
+
+`httpTransport` uses GitHub's public API host. Its `token` option accepts a string or a synchronous/asynchronous resolver. It handles bounded retries and exposes these options:
+
+| Option | Default |
+| --- | --- |
+| `timeoutMs` | 20000 |
+| `maxRetries` | 3 retries after the initial attempt |
+| `concurrency` | 5 transport requests |
+| `maxBackoffMs` | 60000 |
+| `userAgent` | `issue-graph` |
+
+Transport concurrency is separate from crawl concurrency. Handle terminal errors and incomplete node evidence; retries are not a completeness guarantee.
+
+## Use authenticated GitHub CLI access
+
+In a Node-compatible process, replace the HTTP transport with:
+
+```ts
+import { shellTransport } from "@vercel-labs/issue-graph/transport/shell";
+
+const transport = shellTransport();
+```
+
+Pass this transport to `makeFetchNode` in the same crawl. It shells out to `gh api` using the credentials available to that process. It is not suitable for a browser or a runtime without child-process support. The shell transport delegates authentication and API behavior to `gh` rather than using the HTTP transport's retry settings.
+
+## Collect status without a graph crawl
+
+With either transport:
+
+```ts
+import { collectStatus } from "@vercel-labs/issue-graph";
+
+const report = await collectStatus(transport, {
+  repos: ["vercel-labs/portless"],
+  authors: ["ctate", "Railly"],
+  concurrency: 4,
+  maxPages: 100,
+});
+
+console.log({ coverageComplete: report.coverageComplete, totals: report.totals });
+```
+
+Keep coverage and count provenance in your consumer. A `null` count is not zero. The collector does not make a PR merge-ready or save CLI snapshots for you. See [Status](/docs/status) for interpretation.
+
+## Public imports after a functional release
+
+The public `issue-graph@0.1.0` is a placeholder with no CLI `bin`, not the functional library described here. A functional unscoped publication is pending, and its version is unspecified.
+
+Only after that release, the intended consumer installation is:
+
+```bash
+pnpm add issue-graph
+```
+
+The intended public import spellings are then:
+
+```ts
+import { classify, crawl, makeFetchNode } from "issue-graph";
+import { httpTransport } from "issue-graph/transport/http";
+import { shellTransport } from "issue-graph/transport/shell";
+```
+
+These are future import examples, not instructions to install today's placeholder. Until a functional release is confirmed, use the scoped local file dependency above. Keep GitHub tokens server-side and review [permissions and privacy](/docs/security) before exposing results to other users.
