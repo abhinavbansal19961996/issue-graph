@@ -1,0 +1,69 @@
+{
+  "capturedAt": "2026-09-18T06:05:37.590Z",
+  "command": "issue-graph 427 --repo vercel-labs/portless --depth 1 --no-snapshot",
+  "seed": "vercel-labs/portless#427",
+  "nodes": [
+    {
+      "key": "vercel-labs/portless#427",
+      "repository": "portless",
+      "number": 427,
+      "title": "Migrate portless docs to Geistdocs with WebMCP",
+      "state": "OPEN",
+      "url": "https://github.com/vercel-labs/portless/pull/427"
+    },
+    {
+      "key": "vercel-labs/wterm#135",
+      "repository": "wterm",
+      "number": 135,
+      "title": "Migrate wterm docs to Geistdocs with WebMCP",
+      "state": "MERGED",
+      "url": "https://github.com/vercel-labs/wterm/pull/135"
+    },
+    {
+      "key": "vercel-labs/portless#387",
+      "repository": "portless",
+      "number": 387,
+      "title": "feat(docs): add agent-readable documentation",
+      "state": "MERGED",
+      "url": "https://github.com/vercel-labs/portless/pull/387"
+    },
+    {
+      "key": "vercel-labs/portless#91",
+      "repository": "portless",
+      "number": 91,
+      "title": "feat(docs): add copy button to code blocks",
+      "state": "OPEN",
+      "url": "https://github.com/vercel-labs/portless/pull/91"
+    },
+    {
+      "key": "vercel-labs/portless#116",
+      "repository": "portless",
+      "number": 116,
+      "title": "feat: make docs chat LLM provider configurable, add MiniMax support (M3)",
+      "state": "OPEN",
+      "url": "https://github.com/vercel-labs/portless/pull/116"
+    }
+  ],
+  "edges": [
+    {
+      "from": "vercel-labs/portless#427",
+      "to": "vercel-labs/wterm#135",
+      "via": "text"
+    },
+    {
+      "from": "vercel-labs/portless#427",
+      "to": "vercel-labs/portless#387",
+      "via": "text"
+    },
+    {
+      "from": "vercel-labs/portless#427",
+      "to": "vercel-labs/portless#91",
+      "via": "text"
+    },
+    {
+      "from": "vercel-labs/portless#427",
+      "to": "vercel-labs/portless#116",
+      "via": "text"
+    }
+  ]
+}
