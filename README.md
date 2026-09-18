@@ -1,318 +1,153 @@
 # issue-graph
 
-Map the complete reference graph around a GitHub issue, pull request, or
-repository backlog before you start working on it.
+Find related GitHub issues, competing pull requests, and unresolved follow-ups before you start work.
 
-`issue-graph` follows text mentions and GitHub's structural links across repositories,
-then classifies the graph so humans and coding agents can see related work,
-duplicate pull requests, competing fixes, superseded work, and unresolved
-follow-ups.
+`issue-graph` follows text mentions and GitHub's structural links across repositories. Use it to inspect one issue's neighborhood, count open PRs by author and project, or turn a backlog into a verification queue. Crawling, classification, and ranking need no model. Root-cause clustering is an optional agent step.
 
-The crawl and classifications are deterministic. No model is required. An agent
-is only used when you explicitly ask `issue-graph` to group the graph by root cause.
+![A public issue-graph snapshot connecting Portless PR 427 to four related pull requests in Portless and wterm.](apps/docs/public/issue-graph-demo.svg)
 
-## Install from source
+Public reference data captured on September 18, 2026, not a live feed. Reproduce it with the bounded graph command below.
 
-`issue-graph` is not published to a package registry yet. You need
-[Bun](https://bun.sh) and an authenticated [GitHub CLI](https://cli.github.com).
+## Start here
+
+The supported installation today is from source and requires access to the **INTERNAL** `vercel-labs/issue-graph` repository. For source development, use [Node.js](https://nodejs.org) 20.19.x or 22.12+ (24 recommended), [pnpm](https://pnpm.io), and an authenticated [GitHub CLI](https://cli.github.com). The compiled CLI's runtime requirement remains Node.js 20 or later. Without repository access, this installation path is not available yet.
 
 ```bash
+gh auth login
+gh auth status
 gh repo clone vercel-labs/issue-graph
 cd issue-graph
-bun install --frozen-lockfile
-bun link
-```
-
-The `issue-graph` command is now available on your `PATH`.
-
-```bash
+pnpm install --frozen-lockfile
+pnpm build
+pnpm link --global
 issue-graph --help
 ```
 
-To update:
+Run a bounded graph around [portless PR #427](https://github.com/vercel-labs/portless/pull/427), a public example, without saving a snapshot:
+
+```bash
+issue-graph 427 --repo vercel-labs/portless --depth 1 --no-snapshot
+```
+
+Read the nodes, typed references, and cleanup candidates, then check for failed fetches, node caps, and unexpanded hubs before drawing conclusions. Results reflect live GitHub evidence, not a fixed demo output.
+
+### Registry installation: pending publication
+
+The public unscoped `issue-graph@0.1.0` is ctate's “Coming soon” placeholder and has no CLI `bin`. **`pnpm dlx issue-graph` does not run this tool today.** These are intended commands only after a functional unscoped release is confirmed:
+
+```bash
+pnpm dlx issue-graph --help
+pnpm add --global issue-graph
+```
+
+The checkout still declares `@vercel-labs/issue-graph`; that is local package metadata, not a claim that a scoped package is published. The future release version is not specified here. Use pnpm for source development and Node.js to run the compiled CLI.
+
+## Choose a workflow
+
+| Need | Installed command |
+| --- | --- |
+| Inspect an issue or PR before starting work | `issue-graph 427 --repo vercel-labs/portless --depth 1 --no-snapshot` |
+| Survey labeled open issues | `issue-graph --label bug --repo owner/repo --prioritize` |
+| Count open PRs by author | `issue-graph status --repo vercel-labs/portless --author ctate,Railly` |
+| See PR evidence, assignees, and requested reviewers | `issue-graph status --repo vercel-labs/portless --author ctate --view prs` |
+| Reconcile an open backlog, with or without labels | `issue-graph reconcile --repo owner/repo --format json --no-snapshot` |
+| Select the next backlog action | `issue-graph plan --repo owner/repo --format json` |
+| Inspect the machine contract | `issue-graph schema` |
+
+Graph mode prints Markdown, even when piped; `--json PATH` writes a graph file. Reconcile and plan default to Markdown in a terminal and versioned JSON in a pipe. Status defaults to a terminal table or JSON in a pipe; its `--json` is a boolean stdout flag, not a filename.
+
+## Explore and compare
+
+Export a graph and a self-contained HTML explorer:
+
+```bash
+issue-graph 427 --repo vercel-labs/portless --depth 1 --no-snapshot --json graph.json --html graph.html
+```
+
+Open `graph.html` in a browser. It includes typed relationships, node evidence, a cleanup checklist, and an Impact view projecting relationships visible in this graph. No server is needed. Impact is not proof of causality.
+
+Graph and reconcile runs save local history under `~/.issue-graph/` by default. Re-running the same graph seeds shows a snapshot diff; reconciliation tracks repository-level action changes. `--no-snapshot` skips saving history but does not prevent explicitly requested JSON or HTML exports. Plan writes no snapshots.
+
+Status history is opt-in:
+
+```bash
+issue-graph status --repo vercel-labs/portless --author ctate,Railly --save
+issue-graph status --repo vercel-labs/portless --author ctate,Railly --since last --save
+```
+
+Status reports unknown counts as `?` or `null`, never a fabricated zero. Check coverage before using totals. Approval is not merge readiness: status does not inspect CI checks or coding-review threads, and a missing PR is not assumed merged.
+
+## Agents and integrations
+
+The [repository skill](skills/issue-graph/SKILL.md) routes counts to status, linked work to graph mode, and backlog actions to reconcile or plan. After installing the CLI, copy or symlink `skills/issue-graph` into your agent's supported project skill directory, or ask the agent to read that file directly. Installing a skill does not install the CLI or authenticate GitHub.
+
+Use `--cluster` to print a root-cause clustering task for the calling agent. `--cluster-run claude` or `--cluster-run codex` sends it to an installed headless agent. Review the payload and the agent's data policy before using private repository evidence.
+
+The library separates the runtime-agnostic core from shell (`gh`) and HTTP (`fetch` plus token) transports. Current source consumers use a built local dependency named `@vercel-labs/issue-graph`. Public imports from `issue-graph` and its transport subpaths are intended only after a functional unscoped release.
+
+## Documentation
+
+The docs site at [issue-graph.dev/docs](https://issue-graph.dev/docs) is forthcoming. The content is available in this checkout:
+
+- [Get started](apps/docs/content/docs/get-started.mdx): installation, authentication, and a first result
+- [Graph](apps/docs/content/docs/graph.mdx): depth, caps, snapshots, and HTML
+- [Status](apps/docs/content/docs/status.mdx): counts, coverage, and history
+- [Backlog](apps/docs/content/docs/backlog.mdx): reconcile and plan
+- [Agents](apps/docs/content/docs/agents.mdx): skill setup and optional clustering
+- [Library](apps/docs/content/docs/library.mdx): core, shell, and HTTP integrations
+- [Security](apps/docs/content/docs/security.mdx): permissions and private data
+- [Reference](apps/docs/content/docs/reference.mdx): commands and output contracts
+
+## Limits and privacy
+
+The CLI is read-only **on GitHub**, not side-effect-free locally. Graphs are bounded by depth, node caps, hubs, permissions, and per-node API limits. Shared files or closing targets are candidates for review, not guarantees of duplicate accuracy, correctness, or scope parity. Verify current code and behavior before closing or merging anything.
+
+Snapshots, exports, logs, and cluster prompts can contain private repository metadata. A self-contained HTML file is portable, not automatically safe to publish. Review content and storage permissions before sharing. See [security guidance](apps/docs/content/docs/security.mdx) and [vulnerability reporting](SECURITY.md).
+
+## Source development
+
+From an authorized checkout, update a source installation with:
 
 ```bash
 git pull --ff-only
-bun install --frozen-lockfile
-bun link
+pnpm install --frozen-lockfile
+pnpm build
+pnpm link --global
 ```
 
-## Quick start
-
-Trace one issue or pull request:
+Contributor checks:
 
 ```bash
-issue-graph 260 --repo owner/repo
-issue-graph https://github.com/owner/repo/pull/260
+pnpm check
+pnpm test:package
 ```
 
-Survey several related items:
+`pnpm build` emits the Node CLI and library in `dist`. Package verification builds and exercises a packed local installation; it is not evidence of registry publication. To compare transports against live GitHub data, use `pnpm exec tsx scripts/verify-transports.ts <number> <owner/repo> <depth>` with appropriate access.
+
+### Local website development
+
+From the repository root, start the docs website on a fixed local port:
 
 ```bash
-issue-graph --seeds 64,246,281 --repo owner/repo
+pnpm dev:docs --hostname 127.0.0.1 --port 3399
 ```
 
-Survey all open issues with a label and rank them by discussion heat:
+Validate the production build separately. The HTTP suite checks production cache behavior, which differs from the development server:
 
 ```bash
-issue-graph --label bug --repo owner/repo --prioritize
+pnpm check:docs
+pnpm build:docs
+pnpm --filter @issue-graph/docs test:ci
 ```
 
-Reconcile the whole open backlog, including repositories without labels:
+The last command starts and stops its own test server. For a manual browser session or audit, stop the development server and run `pnpm --filter @issue-graph/docs start --hostname 127.0.0.1 --port 3399`. In another terminal:
 
 ```bash
-issue-graph reconcile --repo owner/repo
+DOCS_TEST_URL=http://127.0.0.1:3399 pnpm test:docs:routes
+DOCS_TEST_URL=http://127.0.0.1:3399 pnpm audit:docs
 ```
 
-Turn that backlog into a deterministic next-action queue:
-
-```bash
-issue-graph plan --repo owner/repo
-```
-
-Interactive terminals receive Markdown. Pipes and agents receive versioned JSON
-by default. Use `--format markdown|json` to choose explicitly, and `issue-graph schema`
-to inspect the machine contract and local-write behavior.
-
-Generate JSON and a self-contained HTML explorer:
-
-```bash
-issue-graph 260 --repo owner/repo --json graph.json --html graph.html
-open graph.html
-```
-
-## PR status by author and project
-
-Count open PRs without a graph crawl:
-
-```bash
-issue-graph status \
-  --repo vercel-labs/agent-browser \
-  --repo vercel-labs/wterm \
-  --repo vercel-labs/portless \
-  --repo vercel-labs/emulate \
-  --repo vercel-labs/json-render \
-  --author ctate,Railly
-```
-
-The default human view groups rows by repository and author, including zero rows. Use `--view projects` for project totals and per-author open counts, or `--view prs` for the underlying PRs, titles, URLs, heads, assignees, and requested reviewers. Filter by supplying fewer repositories or authors. Author matching and scope deduplication are case-insensitive.
-
-```bash
-issue-graph status --repo vercel-labs/agent-browser --author ctate,Railly --view projects
-issue-graph status --repo vercel-labs/agent-browser --author ctate --view prs
-issue-graph status --repo vercel-labs/agent-browser --author ctate,Railly --format markdown
-issue-graph status --repo vercel-labs/agent-browser --author ctate,Railly --json
-```
-
-TTY output defaults to an aligned table, with narrow-terminal fallback and `NO_COLOR` support. Piped output defaults to JSON; `--format table|markdown|json` overrides it. Progress and the TTY heading go to stderr. In **status only**, `--json` takes no filename and prints JSON on stdout; graph's existing `--json PATH` still writes a file.
-
-Review-required, changes-requested, approved, no-review-required, and unknown review states partition open PRs. Drafts, conflicts, and unassigned PRs are independent indicators. Approval is not a promise of merge readiness. The command does not infer organization membership from authors or read CI checks or coding-review threads.
-
-Status paginates repository PR connections directly, not search results. `--concurrency` bounds concurrent repositories (default 4, maximum 32). `--max-pages` bounds each connection (default 100, maximum 1000; 50 PRs per repository page). Assignees and review requests are also paginated. Caps, access failures, malformed responses, and detectable inventory drift are reported explicitly.
-
-JSON schema version 1 includes scope, query timestamps, per-repository coverage, PR evidence, author rows, project rows, totals, and runnable next steps. Each metric carries `{ count, prIds, unknownIds }`: `count: null` means unknown, while `prIds` retains known matches as a lower bound. Human views display `?`, never a fabricated zero. Failed repositories invalidate their own aggregate counts and portfolio totals, not complete sibling repositories. The query window is not an atomic GitHub snapshot.
-
-Exit codes: 0 for complete inventory/comparison, 1 for incomplete evidence or runtime failures, 2 for invalid arguments. Status never mutates GitHub. Local writes are opt-in through `--save`; `--no-snapshot` forbids them and conflicts with `--save`. The same captured evidence produces the same ordering and aggregation without a model.
-
-### Compare with the previous capture
-
-```bash
-issue-graph status --repo vercel-labs/agent-browser --author ctate,Railly --save
-issue-graph status --repo vercel-labs/agent-browser --author ctate,Railly --since last --save
-issue-graph status --repo vercel-labs/agent-browser --author ctate,Railly --since /path/to/previous.json --json
-```
-
-`--save` stores immutable, private JSON under `~/.issue-graph/status/<scope-hash>/`; set `ISSUE_GRAPH_HOME` to use another root. `--since last` loads the latest capture for exactly the same repositories and authors before collecting or saving anything new. Different order/case is accepted, different scope is not. `--since PATH` also accepts an older exported status JSON report. A missing, corrupt, future, or mismatched baseline fails explicitly instead of claiming no changes.
-
-The Changes appendix shows review, draft, conflict, head, assignment, and reviewer-request transitions plus count deltas. JSON adds `history` when comparing and `snapshot` with the saved path when saving. Missing PRs are queried explicitly to distinguish merged, closed, and unverified; absence alone never means merged. Unknown metadata and incomplete prior captures remain uncertain. Reconstructed baselines carry their provenance rather than pretending to be live exports. This tracks observed state, not who authored a review or whether their comments were addressed.
-
-## What it finds
-
-- Text mentions in issue and pull request bodies and comments
-- GitHub cross-references, connected events, and closing references
-- References across repositories
-- Open pull requests that touch the same files
-- Multiple pull requests competing to close the same issue
-- Pull requests that may already be superseded by merged work
-- Closing claims such as `fixes #123` without a structural closing link
-- Open nodes ranked by comments, participants, reactions, inbound references,
-  and time open
-- Changes since the previous graph or repository reconciliation
-
-Every node includes its current state, author, referrers, outgoing edges, and
-pull request metadata when available. Every edge records its source and
-attribution.
-
-## Reconcile as an agent protocol
-
-`issue-graph reconcile` searches the open backlog, paginates seed discovery, crawls
-reference-graph levels with bounded concurrency, and produces deterministic
-actions such as:
-
-- `verify-completed`
-- `close-superseded`
-- `resolve-competing`
-- `repair-closing-link`
-- `review-open-pr`
-- `keep-linked`
-- `keep-untracked`
-
-Evidence is structured as `{ code, summary, related }`, so agents can branch on
-stable reasons without parsing prose. Repository-keyed history reports new
-items, action changes, resolved items, and coverage regressions or recoveries.
-
-A graph relationship is evidence, not proof of working behavior. Close
-candidates still require verification against current code, acceptance
-criteria, and live behavior.
-
-The command never mutates GitHub. It saves local repository history under
-`~/.issue-graph/reconcile-owner-repo/` unless `--no-snapshot` is set.
-
-## Plan the backlog
-
-`issue-graph plan` reuses the live reconciliation and discussion signals to separate
-the backlog into:
-
-- a ready execution queue
-- an investigation queue for issues without enough evidence
-- blocked work such as draft or conflicting pull requests and issues with
-  active related work
-
-Cleanup and verification actions come before implementation review. Within
-each lane, issue-graph uses readiness, discussion heat, and visible inbound references
-as deterministic sort keys. Missing open seeds or capped crawl neighborhoods
-make the queue provisional and suppress the single `next` recommendation.
-Failed neighbor references are quarantined to the affected items so unrelated
-work can still proceed.
-
-When the next action involves competing pull requests, the report includes a
-structured `decision` object. It labels each relationship, compares draft,
-review, mergeability, diff size, changed files, and update time, and may name a
-pull request to review first. That ordering is a review shortcut, not a claim
-that the pull request is correct or should win. Acceptance criteria and
-repository-specific behavior still require human or review-gate verification.
-
-The MVP does not infer product dependencies from prose. Its `blockedBy` entries
-come only from visible active GitHub relationships. Re-run the command after
-each merge or closure to refresh the queue.
-
-## Built for software factories
-
-Use graph mode as a preflight before an agent plans or implements one issue:
-
-```bash
-issue-graph "$ISSUE_URL" --json /tmp/issue-graph.json --no-snapshot
-```
-
-Use reconcile mode for repository maintenance:
-
-```bash
-issue-graph reconcile --repo owner/repo --format json --no-snapshot
-```
-
-Use plan mode to select the next safe action:
-
-```bash
-issue-graph plan --repo owner/repo --format json
-```
-
-A factory can use the evidence to:
-
-1. Stop when another pull request already implements the issue.
-2. Route competing or overlapping work to review.
-3. Give an implementation agent the full issue and pull request neighborhood.
-4. Build a verification queue from stable reconcile actions.
-5. Re-run later and detect graph, action, or coverage changes.
-
-The graph core is separate from GitHub access. The CLI uses an authenticated
-`gh` process, while server integrations can use the HTTP transport with `fetch`
-and a token.
-
-## Agent-assisted clustering
-
-Print a compact root-cause clustering task for the calling agent:
-
-```bash
-issue-graph --seeds 64,246,281 --repo owner/repo --cluster
-```
-
-For unattended use, `--cluster-run claude` and `--cluster-run codex` can run the
-same task through an installed headless agent.
-
-The repository also includes an agent skill in [`skills/issue-graph`](skills/issue-graph).
-Copy or symlink it into your agent's skills directory after installing the CLI.
-
-## HTML explorer
-
-`--html graph.html` creates a single file with no server or build step. It
-includes:
-
-- A filterable graph grouped by connected component or agent-provided cluster
-- Node evidence and typed relationships
-- A cleanup checklist for superseded or competing work
-- An Impact view that projects the visible blast radius of resolving a node
-
-Impact is a projection from the current graph, not proof of causality. The
-explorer never changes GitHub.
-
-## Use as a library
-
-Registry publishing is intentionally disabled for now. To use `issue-graph` as a local
-dependency, build this checkout and reference it from a workspace or file
-dependency:
-
-```bash
-cd path/to/issue-graph
-bun install --frozen-lockfile
-bun run build
-```
-
-```json
-{
-  "dependencies": {
-    "@vercel-labs/issue-graph": "file:../issue-graph"
-  }
-}
-```
-
-```ts
-import { classify, crawl, fileOverlaps, makeFetchNode, prioritize } from "@vercel-labs/issue-graph";
-import { httpTransport } from "@vercel-labs/issue-graph/transport/http";
-
-const repo = { owner: "owner", repo: "repo" };
-const transport = httpTransport({ token: process.env.GITHUB_TOKEN! });
-
-const { nodes } = await crawl(
-  [{ ...repo, number: 260 }],
-  { maxDepth: 2, maxNodes: 80, hubThreshold: 12, primaryRepo: repo },
-  makeFetchNode(transport),
-);
-
-classify(nodes);
-const priorities = prioritize(nodes, new Date());
-const overlaps = fileOverlaps(nodes);
-```
-
-Available entry points:
-
-| Import | Requirements |
-| --- | --- |
-| `@vercel-labs/issue-graph` | Runtime-agnostic graph core |
-| `@vercel-labs/issue-graph/transport/http` | `fetch` and a GitHub token |
-| `@vercel-labs/issue-graph/transport/shell` | An authenticated `gh` on `PATH` |
-
-## Development
-
-```bash
-bun install --frozen-lockfile
-bun run check
-```
-
-To compare the shell and HTTP transports against a live repository:
-
-```bash
-bun run scripts/verify-transports.ts <number> <owner/repo> <depth>
-```
+The agent-readability audit may follow production canonical URLs even when started against localhost. Before deployment, those requests can fail or inspect a different deployment; a local audit is not necessarily local-only. [is-agentic.com](https://is-agentic.com) requires a publicly reachable URL, not localhost. Audit scores are diagnostic signals, not certification of agent compatibility, accessibility, security, or production readiness.
 
 ## License
 
