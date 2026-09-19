@@ -9,17 +9,13 @@ export const config = defineConfig({
   logoHref: "/",
   navbarVariant: "oss",
   navbarActiveProduct: siteName,
-  navbarGithub: { enabled: repositoryIsPublic },
-  ...(repositoryIsPublic
-    ? {
-        github: {
-          owner: "vercel-labs",
-          repo: "issue-graph",
-          branch: "main",
-          editPath: "apps/docs/content/docs",
-        },
-      }
-    : {}),
+  navbarGithub: { enabled: true },
+  github: {
+    owner: "vercel-labs",
+    repo: "issue-graph",
+    branch: "main",
+    editPath: "apps/docs/content/docs",
+  },
   content: [{ id: "docs", label: "Documentation", dir: "content/docs", route: "/docs" }],
   nav: [
     { label: "Docs", href: "/docs" },

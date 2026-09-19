@@ -58,6 +58,19 @@ describe("documentation content contract", () => {
     expect(security.toLowerCase()).toContain("snapshot");
   });
 
+  test("enables the native GitHub navbar link without changing source access", async () => {
+    const [config, site] = await Promise.all([
+      read("src/lib/geistdocs/config.tsx"),
+      read("src/lib/site.ts"),
+    ]);
+    expect(config).toContain("navbarGithub: { enabled: true }");
+    expect(config).toContain('owner: "vercel-labs"');
+    expect(config).toContain('repo: "issue-graph"');
+    expect(config).not.toContain("...(repositoryIsPublic");
+    expect(config).toContain("editSource: repositoryIsPublic");
+    expect(site).toContain("repositoryIsPublic = false");
+  });
+
   test("pins the public runtime and uses no initializer or private provider", async () => {
     const pkg = JSON.parse(await read("package.json"));
     expect(pkg.name).toBe("@issue-graph/docs");

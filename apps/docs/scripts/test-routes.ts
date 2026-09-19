@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { docsSlugs, markdownPath } from "../src/lib/docs-paths";
-import { canonicalUrl } from "../src/lib/site";
+import { canonicalUrl, repositoryUrl } from "../src/lib/site";
 import { testUrl } from "./test-url";
 
 const origin = testUrl();
@@ -74,9 +74,26 @@ for (const path of ["/", ...docsSlugs.map((slug) => (slug ? `/docs/${slug}` : "/
   );
   if (preview)
     assert.match(htmlAttribute(html.body, "meta", "name", "robots", "content") ?? "", /noindex/);
+  const header = html.body.match(/<header\b[^>]*>[\s\S]*?<\/header>/)?.[0];
+  assert.ok(header, `Navbar: ${path}`);
+  assert.equal(
+    htmlAttribute(header, "a", "aria-label", "GitHub repository", "href"),
+    repositoryUrl,
+    `Navbar GitHub destination: ${path}`,
+  );
+  assert.equal(
+    htmlAttribute(header, "a", "aria-label", "GitHub repository", "target"),
+    "_blank",
+    `Navbar GitHub opens separately: ${path}`,
+  );
+  assert.match(
+    htmlAttribute(header, "a", "aria-label", "GitHub repository", "rel") ?? "",
+    /\bnoopener\b/,
+    `Navbar GitHub opener isolation: ${path}`,
+  );
   assert.ok(
-    !/<a\b[^>]*href="https:\/\/github.com\/vercel-labs\/issue-graph(?:["/#?])/.test(html.body),
-    `Private repository link: ${path}`,
+    !html.body.includes(`href="${repositoryUrl}/edit/`),
+    `Source editing remains disabled: ${path}`,
   );
   isolated(html.response);
 
