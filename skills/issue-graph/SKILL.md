@@ -1,7 +1,7 @@
 ---
 name: issue-graph
 description: Read-only GitHub PR status and reference graphs for maintainers and agents. Use whenever the user asks for PR counts or status by author, project, repository, or review state; approved, changes-requested, conflicting, draft, ready-for-review, or unassigned PRs; a compact portfolio table; or counts for named contributors, even without naming issue-graph. Spanish triggers include cuantas PRs, conteo por autor, tabla por proyecto, pendientes de revision, conflictos, and sin asignar. Also use before working an issue or PR, tracing references, finding duplicate or superseded work, reconciling an unlabeled backlog, prioritizing issues, and checking changes since a snapshot. Route counts to issue-graph status, references to graph, and backlog actions to reconcile or plan. Never infer code correctness or merge readiness from counts.
-compatibility: "Requires Node.js >=20, authenticated `gh`, and GitHub API access. Current installation requires access to the INTERNAL repository: `gh repo clone vercel-labs/issue-graph && cd issue-graph && pnpm install --frozen-lockfile && pnpm build && pnpm link --global`. Source development uses pnpm and Node.js 20.19.x or 22.12+ (24 recommended). Planned `pnpm dlx issue-graph` compatibility and `pnpm add --global issue-graph` are pending a functional unscoped release; public issue-graph@0.1.0 is only a placeholder with no bin. The local package remains @vercel-labs/issue-graph, not a claimed scoped publication. Graph/reconcile save local snapshots by default; status only with --save; plan never does. Optional headless clustering needs `claude` or `codex`."
+compatibility: "Requires Node.js >=20, authenticated `gh`, and GitHub API access. Current installation requires access to the INTERNAL repository: `gh repo clone vercel-labs/issue-graph && cd issue-graph && pnpm install --frozen-lockfile && pnpm build && pnpm link --global`. Source development uses pnpm and Node.js 20.19.x or 22.12+ (24 recommended). Planned `pnpm dlx issue-graph` compatibility and `pnpm add --global issue-graph` are pending a functional unscoped release; public issue-graph@0.1.0 is only a placeholder with no bin. The source package is issue-graph@0.2.0, the selected release candidate, not a claimed registry publication. Graph/reconcile save local snapshots by default; status only with --save; plan never does. Optional headless clustering needs `claude` or `codex`."
 ---
 
 # issue-graph
@@ -18,7 +18,8 @@ prerequisites and obtain permission before installing/building/linking it.
 The public `issue-graph@0.1.0` is ctate's “Coming soon” placeholder with no CLI `bin`.
 `pnpm dlx issue-graph` does not run this tool today. Only after a functional unscoped
 release is confirmed can that planned spelling replace a global installation.
-Do not claim that the scoped local package is published or invent a future version.
+The source identity is `issue-graph@0.2.0`, the selected release candidate.
+Do not claim that this version is published until registry publication is verified.
 
 After a functional release is confirmed, an explicitly authorized setup can use
 `pnpm add --global issue-graph` for the CLI. That does not register this skill with

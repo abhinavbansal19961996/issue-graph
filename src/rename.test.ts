@@ -30,12 +30,13 @@ function run(args: string[]) {
 
 describe("issue-graph identity", () => {
   test("package metadata exposes only the canonical command and repository", () => {
-    expect(pkg.name).toBe("@vercel-labs/issue-graph");
+    expect(pkg.name).toBe("issue-graph");
+    expect(pkg.version).toBe("0.2.0");
     expect(pkg.private).not.toBe(true);
     expect(pkg.publishConfig.access).toBe("public");
     expect(pkg.bin).toEqual({ "issue-graph": "./dist/bin.js" });
     expect(pkg.repository.url).toBe("git+https://github.com/vercel-labs/issue-graph.git");
-    expect(pkg.homepage).toBe("https://github.com/vercel-labs/issue-graph#readme");
+    expect(pkg.homepage).toBe("https://issue-graph.dev");
     expect(pkg.bugs.url).toBe("https://github.com/vercel-labs/issue-graph/issues");
   });
 

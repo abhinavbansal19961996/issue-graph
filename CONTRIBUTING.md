@@ -22,6 +22,14 @@ pnpm install --frozen-lockfile
 pnpm check
 ```
 
+For packaging changes, also run `pnpm test:package`. To test an existing archive without packing, building, or deleting the supplied file:
+
+```bash
+pnpm test:package --tarball /absolute/path/issue-graph-0.2.0.tgz --sha256 <sha256>
+```
+
+Both options are required in supplied mode. Verification checks the archive's name and version against the source manifest, SHA-256 before and after consumption, installed CLI and exports, offline pnpm installation/dlx, and owned GitHub fixtures. Default mode packs once through `prepack`; supplied mode never packs or rebuilds.
+
 Add or update tests for behavior changes. Keep the graph core runtime-agnostic,
 and keep filesystem or subprocess dependencies out of the main package entry
 point.
@@ -32,3 +40,55 @@ repository:
 ```bash
 pnpm exec tsx scripts/verify-transports.ts <number> <owner/repo> <depth>
 ```
+
+## Release process
+
+The selected source identity is `issue-graph@0.2.0`. npm publication is pending. The repository remains INTERNAL, and adding the workflow does not authorize a release or change repository visibility.
+
+`.github/workflows/release.yml` has only `workflow_dispatch`, with required `expected_sha` and `expected_version` inputs and a boolean `publish` input defaulting to `false`. Before any dispatch, review the commit on canonical `main` and set `EXPECTED_SHA` to its full 40-character SHA.
+
+### Verify-only dispatch
+
+Leave `publish` false to run the real GitHub build, retain the artifact, and exercise the Node 20/22/24 consumers. The publish job is skipped, so this mode neither requests Release environment approval nor runs a job with OIDC write permission. After the workflow is committed, an authorized maintainer can request this verification without authorizing npm publication:
+
+```bash
+gh workflow run release.yml --repo vercel-labs/issue-graph --ref main -f expected_sha="$EXPECTED_SHA" -f expected_version=0.2.0 -F publish=false
+```
+
+### Publish dispatch
+
+Publishing requires a separate explicit `publish=true` dispatch and Release environment approval. Before that dispatch, maintainers must configure and verify:
+
+- npm trusted publishing for package `issue-graph`, GitHub owner `vercel-labs`, repository `issue-graph`, workflow filename `release.yml`, and environment `Release`, with direct `npm publish` allowed, not only staged publishing.
+- The GitHub `Release` environment restricted to `main`, with required maintainer approval. Merely naming an environment in YAML does not configure its protection rules.
+- Separate authorization to publish the reviewed SHA and exact version.
+
+Only after publication is authorized:
+
+```bash
+gh workflow run release.yml --repo vercel-labs/issue-graph --ref main -f expected_sha="$EXPECTED_SHA" -f expected_version=0.2.0 -F publish=true
+```
+
+The publish dispatch builds and tests its own retained artifact; it does not promote or reuse an artifact from the earlier verify-only run. Both modes reject noncanonical repositories, non-main refs, mismatched source identities, an existing exact registry version, and registry/network errors. Preflight requires a canonical stable `dist-tags.latest` value (`major.minor.patch`) present in registry version history, and the target must be strictly newer. Missing, malformed, prerelease, or build-metadata latest tags fail closed. Releases are serialized without cancelling a running release. Preflight is repeated immediately before publishing, but there is no atomic registry compare-and-set: coordinate out-of-band publishers to avoid a race after that final check.
+
+The build job uses Node 24 and the pinned pnpm with a frozen lockfile, runs lint/typecheck/tests, and calls `pnpm pack` exactly once. `prepack` supplies the only build. It retains one tarball plus `release.json` and `SHA256SUMS` in an immutable, run-specific artifact for 30 days. Metadata binds name, version, source SHA, filename, and SHA-256.
+
+Node 20/22/24 consumers download that exact artifact ID, verify its metadata and digest, and smoke-test the supplied tarball without rebuilding. Only after every consumer passes can the protected publish job download the same artifact, recheck identity and registry state, and publish that tarball with hooks disabled. It installs no project dependencies and creates no tags or GitHub releases. If a publish succeeded but a later step failed, a rerun fails closed on the existing version; inspect the registry rather than attempting replacement.
+
+Development and tests use pnpm and Node. The publishing job alone uses the npm client for OIDC, requiring npm >=11.5.1 on Node 24 and `id-token: write` only in that job. There are no npm token secrets. It deliberately omits `--provenance` for INTERNAL sources and does not force provenance off: npm trusted publishing generates provenance automatically when both source repository and package are public. Any visibility change requires separate approval.
+
+### Read-only post-publish verification
+
+After a successful publish, the workflow runs:
+
+```bash
+node scripts/release.ts verify-published "$RUNNER_TEMP/release"
+```
+
+This command uses the same approved release context (`EXPECTED_SHA`, `EXPECTED_VERSION`, GitHub repository/ref/SHA context, and `EXPECTED_TARBALL_SHA256` from the build output). It first verifies the retained metadata, source identity, and archive digest. It then GETs the exact registry version, checks its name/version and `dist.integrity` against SHA-512 of the retained bytes, and GETs the registry tarball to compare its SHA-256 against the approved artifact. The original archive is checked again afterwards, including on failure.
+
+Only HTTPS `registry.npmjs.org` URLs without credentials, nondefault ports, query strings, or fragments are allowed. Redirects are forbidden. Requests time out after 15 seconds; metadata is capped at 1 MiB and the downloaded tarball at the approved archive's size. Only HTTP 404/408/429/500/502/503/504 are retried for propagation, with at most five attempts and delays of 1, 2, 4, and 8 seconds. Identity, integrity, URL, byte, malformed-data, and other network failures stop immediately. No retry rebuilds, repacks, republishes, or changes registry tags.
+
+If this verification fails after publication, retain the artifact and investigate. Re-run only the read-only verification with the same approved context, not the publish workflow; the latter intentionally rejects the already-existing version.
+
+Do not set the site's `packageReleasePending` to false until actual publication is verified, or `repositoryIsPublic` to true while the repository is internal. Confirm a fresh install after publication before updating installation claims.

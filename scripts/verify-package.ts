@@ -17,10 +17,13 @@ import {
 } from "node:fs";
 import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertChecksum, parseTarballInput, selectTarball, verifyArchive } from "./release.js";
 
 assert.equal(process.release.name, "node", "package verification requires Node.js");
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const packageName = "@vercel-labs/issue-graph";
+const sourceManifest = JSON.parse(readFileSync(join(repo, "package.json"), "utf8"));
+const packageName = sourceManifest.name;
+const suppliedTarball = parseTarballInput(process.argv.slice(2));
 const fixtureRepo = "package-smoke/fixture";
 const fixtureAuthor = "smoke-author";
 let checks = 0;
@@ -162,7 +165,7 @@ globalThis.fetch = async function () {
 
 const exportProbe = `
 import assert from "node:assert/strict";
-const name = "@vercel-labs/issue-graph";
+const name = ${JSON.stringify(packageName)};
 const core = await import(name);
 const { httpTransport } = await import(name + "/transport/http");
 const { shellTransport } = await import(name + "/transport/shell");
@@ -220,6 +223,7 @@ assert.equal(typeof pnpmManifest.bin?.pnpm, "string", "pnpm package must declare
 assert.equal(realpathSync(resolve(pnpmRoot, pnpmManifest.bin.pnpm)), pnpmCli);
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const owned = mkdtempSync(join(repo, ".package-test-"));
+let retainedTarball = suppliedTarball;
 try {
   const bin = join(owned, "bin");
   const home = join(owned, "home");
@@ -304,13 +308,17 @@ try {
   const pnpm = join(bin, "pnpm");
   const runtime = run([node, "-p", "process.version"], consumer, env).stdout.trim();
   assert.match(runtime, /^v(?:2[024])\./, `expected Node 20, 22, or 24, got ${runtime}`);
-  run([pnpm, "pack", "--pack-destination", artifacts], repo, {
-    ...process.env,
-    PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+  retainedTarball = selectTarball(suppliedTarball, () => {
+    run([pnpm, "pack", "--pack-destination", artifacts], repo, {
+      ...process.env,
+      PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+    });
+    const tarballs = readdirSync(artifacts).filter((name) => name.endsWith(".tgz"));
+    assert.equal(tarballs.length, 1, "pnpm must produce exactly one local tarball");
+    return join(artifacts, tarballs[0]);
   });
-  const tarballs = readdirSync(artifacts).filter((name) => name.endsWith(".tgz"));
-  assert.equal(tarballs.length, 1, "pnpm must produce exactly one local tarball");
-  const tarball = join(artifacts, tarballs[0]);
+  const { tarball, sha256: digest } = retainedTarball;
+  verifyArchive(tarball, sourceManifest, digest);
   const entries = run([tools.tar, "-tzf", tarball], repo, process.env).stdout.trim().split("\n");
   const files = entries.filter((name) => !name.endsWith("/"));
   assert.equal(files.length, 61, "published file count must remain 61");
@@ -357,6 +365,7 @@ try {
   const installed = join(consumer, "node_modules", packageName);
   const manifest = JSON.parse(readFileSync(join(installed, "package.json"), "utf8"));
   assert.equal(manifest.name, packageName);
+  assert.equal(manifest.version, sourceManifest.version);
   assert.equal(manifest.bin["issue-graph"], "./dist/bin.js");
   assert.equal(manifest.main, "./dist/index.js");
   assert.equal(manifest.exports["."].import, "./dist/index.js");
@@ -482,7 +491,12 @@ try {
   const calls = readFileSync(env.PACKAGE_TEST_GH_LOG as string, "utf8")
     .trim()
     .split("\n");
-  assert.equal(checks, 27, "package verification must exercise all 27 commands");
+  const expectedChecks = suppliedTarball ? 26 : 27;
+  assert.equal(
+    checks,
+    expectedChecks,
+    `package verification must exercise all ${expectedChecks} commands`,
+  );
   assert.equal(calls.length, 14, "data verification must exercise all 14 owned gh fixture calls");
   console.log(
     `Package smoke passed on ${runtime}: ${checks} commands; ${calls.length} fixture calls`,
@@ -494,5 +508,9 @@ try {
       !ownedRelative.includes(sep) &&
       ownedRelative.startsWith(".package-test-"),
   );
-  rmSync(owned, { recursive: true, force: true });
+  try {
+    if (retainedTarball) assertChecksum(retainedTarball.tarball, retainedTarball.sha256);
+  } finally {
+    rmSync(owned, { recursive: true, force: true });
+  }
 }

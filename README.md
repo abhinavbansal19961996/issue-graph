@@ -40,7 +40,7 @@ pnpm dlx issue-graph --help
 pnpm add --global issue-graph
 ```
 
-The checkout still declares `@vercel-labs/issue-graph`; that is local package metadata, not a claim that a scoped package is published. The future release version is not specified here. Use pnpm for source development and Node.js to run the compiled CLI.
+The source checkout declares `issue-graph@0.2.0`, the selected release candidate. Publication is still pending; this metadata is not evidence that the registry CLI is available. Use pnpm for source development and Node.js to run the compiled CLI.
 
 ## Choose a workflow
 
@@ -83,7 +83,7 @@ The [repository skill](skills/issue-graph/SKILL.md) routes counts to status, lin
 
 Use `--cluster` to print a root-cause clustering task for the calling agent. `--cluster-run claude` or `--cluster-run codex` sends it to an installed headless agent. Review the payload and the agent's data policy before using private repository evidence.
 
-The library separates the runtime-agnostic core from shell (`gh`) and HTTP (`fetch` plus token) transports. Current source consumers use a built local dependency named `@vercel-labs/issue-graph`. Public imports from `issue-graph` and its transport subpaths are intended only after a functional unscoped release.
+The library separates the runtime-agnostic core from shell (`gh`) and HTTP (`fetch` plus token) transports. Current source consumers use a built local file dependency named `issue-graph`. The same import names and transport subpaths will work from the registry only after the functional `0.2.0` release is confirmed.
 
 ## Documentation
 
@@ -122,7 +122,7 @@ pnpm check
 pnpm test:package
 ```
 
-`pnpm build` emits the Node CLI and library in `dist`. Package verification builds and exercises a packed local installation; it is not evidence of registry publication. To compare transports against live GitHub data, use `pnpm exec tsx scripts/verify-transports.ts <number> <owner/repo> <depth>` with appropriate access.
+`pnpm build` emits the Node CLI and library in `dist`. By default, package verification builds and exercises a packed local installation; supplied-tarball mode tests an existing archive without rebuilding. Neither is evidence of registry publication. See [Contributing](CONTRIBUTING.md#release-process) for the retained-artifact release process. To compare transports against live GitHub data, use `pnpm exec tsx scripts/verify-transports.ts <number> <owner/repo> <depth>` with appropriate access.
 
 ### Local website development
 

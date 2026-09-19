@@ -1,0 +1,159 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Full main commit SHA approved for release
+        required: true
+        type: string
+      expected_version:
+        description: Exact package.json version approved for release
+        required: true
+        type: string
+        default: "0.2.0"
+      publish:
+        description: Publish after verification and Release environment approval
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue-graph-npm-release
+  cancel-in-progress: false
+
+env:
+  EXPECTED_SHA: ${{ inputs.expected_sha }}
+  EXPECTED_VERSION: ${{ inputs.expected_version }}
+
+jobs:
+  build:
+    if: github.repository == 'vercel-labs/issue-graph' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      filename: ${{ steps.record.outputs.filename }}
+      sha256: ${{ steps.record.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Validate release identity and registry state
+        run: node scripts/release.ts preflight
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint && pnpm typecheck && pnpm test
+      - name: Build and pack once
+        run: |
+          mkdir "$RUNNER_TEMP/release"
+          pnpm pack --pack-destination "$RUNNER_TEMP/release"
+      - name: Record exact archive and source identity
+        id: record
+        run: node scripts/release.ts record "$RUNNER_TEMP/release"
+      - uses: actions/upload-artifact@v4
+        id: upload
+        with:
+          name: issue-graph-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          overwrite: false
+
+  consumers:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    env:
+      EXPECTED_TARBALL_SHA256: ${{ needs.build.outputs.sha256 }}
+      TARBALL_FILENAME: ${{ needs.build.outputs.filename }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: ${{ runner.temp }}/release
+          merge-multiple: true
+      - name: Verify retained archive identity
+        run: pnpm exec tsx scripts/release.ts verify "$RUNNER_TEMP/release"
+      - name: Exercise the supplied archive without rebuilding
+        run: pnpm test:package --tarball "$RUNNER_TEMP/release/$TARBALL_FILENAME" --sha256 "$EXPECTED_TARBALL_SHA256"
+      - name: Verify archive was not changed
+        run: pnpm exec tsx scripts/release.ts verify "$RUNNER_TEMP/release"
+
+  publish:
+    needs: [build, consumers]
+    if: inputs.publish == true && github.repository == 'vercel-labs/issue-graph' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: Release
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      EXPECTED_TARBALL_SHA256: ${{ needs.build.outputs.sha256 }}
+      TARBALL_FILENAME: ${{ needs.build.outputs.filename }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: ${{ runner.temp }}/release
+          merge-multiple: true
+      - name: Recheck approval identity and registry immediately before publishing
+        run: |
+          node scripts/release.ts preflight
+          node scripts/release.ts verify "$RUNNER_TEMP/release"
+      - name: Publish the tested archive through OIDC without hooks
+        env:
+          NODE_AUTH_TOKEN: ""
+          NPM_TOKEN: ""
+        run: |
+          NPM_VERSION=$(npm --version)
+          NPM_VERSION="$NPM_VERSION" node --input-type=module -e '
+            import assert from "node:assert/strict";
+            const [major, minor, patch] = process.env.NPM_VERSION.split(".").map(Number);
+            assert.ok(major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1))), "npm >=11.5.1 is required for OIDC");
+            assert.ok(!process.env.NODE_AUTH_TOKEN && !process.env.NPM_TOKEN, "publish must use OIDC, not a stored token");
+          '
+          (
+            cd "$RUNNER_TEMP/release"
+            npm publish "./$TARBALL_FILENAME" --ignore-scripts --access public --registry=https://registry.npmjs.org/ --tag latest
+          )
+          node scripts/release.ts verify "$RUNNER_TEMP/release"
+      - name: Verify published registry identity and exact archive bytes
+        run: node scripts/release.ts verify-published "$RUNNER_TEMP/release"
