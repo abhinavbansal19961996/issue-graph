@@ -8,3 +8,4 @@ dist
 .vercel/
 *.tsbuildinfo
 apps/docs/test-results/
+.env*

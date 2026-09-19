@@ -41,6 +41,12 @@ repository:
 pnpm exec tsx scripts/verify-transports.ts <number> <owner/repo> <depth>
 ```
 
+## Website deployment
+
+The Vercel project uses `apps/docs` as its Root Directory, the Next.js framework preset, Node.js 24.x, and source files outside the Root Directory enabled. The latter is required for the workspace lockfile and canonical skill route. `apps/docs/vercel.json` installs from the workspace root and builds the docs with Corepack and the pinned pnpm version.
+
+Connect the project to `vercel-labs/issue-graph` with production branch `main`. Domain assignment and production deployment require maintainer authorization. Website deployment does not publish the CLI or make the GitHub repository public.
+
 ## Release process
 
 The selected source identity is `issue-graph@0.2.0`. npm publication is pending. The repository remains INTERNAL, and adding the workflow does not authorize a release or change repository visibility.
