@@ -1,0 +1,15 @@
+.git
+.vercel
+.env*
+**/.env*
+node_modules
+**/node_modules
+dist
+.radius
+.package-test-*
+**/.next
+**/.source
+**/*.tsbuildinfo
+**/test-results
+**/*.log
+**/.DS_Store
