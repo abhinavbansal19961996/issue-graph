@@ -47,15 +47,139 @@ describe("documentation content contract", () => {
     }
   });
 
-  test("retains honest pending-release and local-write disclosures", async () => {
-    const [intro, start, security] = await Promise.all([
+  test("names the docs entry Overview", async () => {
+    const intro = await read("content/docs/index.mdx");
+    expect(intro).toMatch(/^title: Overview$/m);
+  });
+
+  test("documents published npm-first installation and preserves access boundaries", async () => {
+    const [intro, start, library, reference, security] = await Promise.all([
       read("content/docs/index.mdx"),
       read("content/docs/get-started.mdx"),
+      read("content/docs/library.mdx"),
+      read("content/docs/reference.mdx"),
       read("content/docs/security.mdx"),
     ]);
-    expect(intro.toLowerCase()).toContain("pending");
-    expect(start.toLowerCase()).toContain("internal");
+    for (const page of [intro, start]) {
+      expect(page).toContain("npx issue-graph@latest --help");
+      expect(page).toContain("npm install --global issue-graph@latest");
+      expect(page).toContain("https://www.npmjs.com/package/issue-graph)");
+      expect(page).toContain("INTERNAL");
+    }
+    expect(start).toContain("npm install --global issue-graph@latest");
+    expect(start.indexOf("## Install from npm")).toBeLessThan(
+      start.indexOf("## Optional source development"),
+    );
+    expect(library).toContain("npm install issue-graph@latest");
+    expect(library).toContain('from "issue-graph"');
+    expect(library).toContain('from "issue-graph/transport/http"');
+    expect(library).toContain('from "issue-graph/transport/shell"');
+    expect(library).not.toContain("file:../issue-graph");
+    expect(reference).toContain("npx issue-graph@latest");
+    expect(start).toContain("Check your installed command's help");
+    expect(start).toContain("not unreleased source capabilities");
+    expect(security).toContain("INTERNAL");
     expect(security.toLowerCase()).toContain("snapshot");
+    const files = (await readdir(contentRoot)).filter((name) => name.endsWith(".mdx"));
+    for (const file of files) {
+      const page = await readFile(new URL(file, contentRoot), "utf8");
+      expect(page).not.toMatch(
+        /publication is (?:still )?pending|still pending publication|functional unscoped release is pending|no working public npm CLI|supported installation is from source|public npm placeholder/i,
+      );
+    }
+  });
+
+  test("uses latest for install and try commands without version-specific npm links", async () => {
+    const files = (await readdir(contentRoot)).filter((name) => name.endsWith(".mdx"));
+    const pages = await Promise.all([
+      ...files.map((file) => readFile(new URL(file, contentRoot), "utf8")),
+      read("../../README.md"),
+      read("../../CONTRIBUTING.md"),
+    ]);
+    for (const page of pages) {
+      for (const command of page.matchAll(
+        /\b(?:npx\s+|npm\s+install\s+(?:(?:--global|-g)\s+)?)(issue-graph|skills)(@[^\s`]+)?/g,
+      )) {
+        expect(command[2]).toBe("@latest");
+      }
+      expect(page).not.toContain("https://www.npmjs.com/package/issue-graph/v/");
+      expect(page).not.toMatch(
+        /examples pin 0\.2\.0|version 0\.2\.0 for reproducible installation/,
+      );
+    }
+  });
+
+  test("keeps demo documentation aligned with the bounded captured fixture", async () => {
+    const example = JSON.parse(await read("src/lib/example-graph.json"));
+    const pages = await Promise.all([
+      read("content/docs/index.mdx"),
+      read("content/docs/get-started.mdx"),
+      read("content/docs/graph.mdx"),
+      read("../../README.md"),
+    ]);
+    for (const page of pages) {
+      expect(page).toContain(example.command);
+      expect(page).toContain(example.capturedAt.slice(0, 10));
+      expect(page).toContain("not a live feed or complete history");
+      expect(page).not.toContain("issue-graph 427");
+      for (const node of example.nodes) expect(page).toContain(`#${node.number}`);
+    }
+    const start = pages[1] ?? "";
+    for (const node of example.nodes) {
+      const row = start.split("\n").find((line) => line.includes(`](${node.url}) |`));
+      expect(row).toContain(`| ${node.state} |`);
+    }
+    for (const page of pages.slice(1)) {
+      expect(page).toContain(`${example.coverage.beyondDepthReferences} references`);
+      expect(page).toContain(`${example.coverage.omittedEdges} edges`);
+    }
+  });
+
+  test("root guidance separates published installation from future release authorization", async () => {
+    const [readme, contributing] = await Promise.all([
+      read("../../README.md"),
+      read("../../CONTRIBUTING.md"),
+    ]);
+    for (const page of [readme, contributing]) {
+      expect(page).toContain("npm install --global issue-graph@latest");
+      expect(page).toContain("npm install issue-graph@latest");
+      expect(page).toContain("npx issue-graph@latest --help");
+      expect(page).toContain("INTERNAL");
+      expect(page).not.toMatch(/publication is (?:still )?pending|pending publication/i);
+    }
+    expect(contributing).not.toMatch(/expected_version=\d+\.\d+\.\d+/);
+    expect(contributing).toContain('expected_version="$EXPECTED_VERSION"');
+    expect(contributing).toContain("Release environment approval");
+  });
+
+  test("uses canonical skill discovery and CLI-bundled guidance without release stories", async () => {
+    const [agents, readme] = await Promise.all([
+      read("content/docs/agents.mdx"),
+      read("../../README.md"),
+    ]);
+    const readmeAgents = readme.match(/^## Agents and integrations\n([\s\S]*?)(?=^## )/m)?.[1];
+    expect(readmeAgents).toBeDefined();
+    for (const page of [agents, readmeAgents ?? ""]) {
+      expect(page).not.toMatch(/\b\d+\.\d+\.\d+(?:-[\w.-]+)?\b/);
+      expect(page).not.toMatch(/outdated|source-only|newer source stub|not available in npm/i);
+      expect(page).not.toMatch(/do not (?:install|pair).*stub|npm root --global|cp -R/i);
+      expect(page).toContain("npm install --global issue-graph@latest");
+      expect(page).toContain("npx skills@latest add https://issue-graph.dev");
+      expect(page).toContain("same canonical");
+      expect(page).toContain("/skill.md");
+      expect(page).toContain("issue-graph skills get core\n");
+      expect(page).toContain("issue-graph skills get core --full\n");
+      expect(page).toContain("issue-graph skills list");
+      expect(page).toContain("authorized setup correction");
+    }
+    for (const heading of [
+      "## Match guidance to the installed release",
+      "## Route the request before collecting evidence",
+      "## Preserve evidence and uncertainty",
+      "## Optional root-cause clustering",
+    ]) {
+      expect(agents).toContain(heading);
+    }
   });
 
   test("enables the native GitHub navbar link without changing source access", async () => {
@@ -76,7 +200,7 @@ describe("documentation content contract", () => {
     expect(pkg.name).toBe("@issue-graph/docs");
     expect(pkg.private).toBe(true);
     for (const [name, version] of Object.entries({
-      "@vercel/geistdocs": "2.2.0",
+      "@vercel/geistdocs": "2.4.1",
       "@vercel/agent-readability": "0.7.0",
       next: "16.3.5",
       react: "19.3.0",

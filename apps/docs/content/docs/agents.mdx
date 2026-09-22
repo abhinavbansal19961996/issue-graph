@@ -1,77 +1,44 @@
 ---
 title: Agents and skills
-description: Install the repository skill separately from the CLI, route tasks to the right command, and use optional clustering safely.
-lastModified: 2026-09-19
+description: Install public agent guidance separately from the published CLI, route requests correctly, and preserve evidence.
+lastModified: 2026-09-22
 ---
 
-## Build the CLI first
-
-Follow [Get started](/docs/get-started) for authorized source setup. **The new `skills` command requires a build from this source checkout until the next release.** No package version bump or release is implied. After building, run `node dist/bin.js skills get core` from the checkout, or use `issue-graph` if it already points to that build. Skill installation neither supplies the executable nor grants GitHub access.
-
-## Load guidance from the CLI
-
-The repository skill is a small, evergreen discovery stub. Before operational commands, it loads the core guidance shipped with the CLI rather than relying on a copied workflow that can drift from the executable.
+## Install the agent skill
 
 ```bash
-issue-graph skills
-issue-graph skills list
+npx skills@latest add https://issue-graph.dev
+```
+
+This installs the public `issue-graph` skill from this site's well-known index. It does not install the CLI, authenticate GitHub, or require access to the INTERNAL source repository. Choose the intended agent and project scope; compare an existing skill before replacing local changes.
+
+To inspect the available skill without installing it:
+
+```bash
+npx skills@latest add https://issue-graph.dev --list
+```
+
+The well-known download and [the `/skill.md` route](/skill.md) serve the same canonical skill. It tells agents to load operational guidance from the installed CLI rather than keeping a separate copy of workflows.
+
+## Install the CLI separately
+
+```bash
+npm install --global issue-graph@latest
+issue-graph --help
+```
+
+For a quick inspection without a global installation, use `npx issue-graph@latest --help`. Follow [Get started](/docs/get-started) for GitHub authentication. Ask before installing or upgrading the CLI, changing authentication, or writing local files. Installing the CLI does not register the agent skill, and installing the skill does not grant GitHub access.
+
+## Match guidance to the installed release
+
+Before operational commands, load and read the core guidance bundled with the CLI. Add `--full` when detailed workflows or references are needed:
+
+```bash
 issue-graph skills get core
 issue-graph skills get core --full
-issue-graph skills --help
-issue-graph skills list --help
-issue-graph skills get --help
 ```
 
-`skills` and `skills list` discover available guidance. `get core` returns the compact core; `--full` adds its detailed workflow references. Assets resolve relative to the package, not the current working directory. Discovery and retrieval make no network requests and do not invoke `gh`; operational GitHub commands still need authentication and repository access.
-
-Plain text/Markdown is the default, even when piped. JSON is opt-in:
-
-```bash
-issue-graph skills list --json
-issue-graph skills get core --json
-issue-graph skills get core --full --json
-```
-
-The list envelope has this shape:
-
-```json
-{"schemaVersion":1,"success":true,"data":[{"name":"core","description":"..."}]}
-```
-
-The get envelope has this shape; `content` is the core Markdown:
-
-```json
-{"schemaVersion":1,"success":true,"data":[{"name":"core","content":"..."}]}
-```
-
-JSON help uses `data: {"usage":"..."}` instead of an array. JSON errors use `{"schemaVersion":1,"success":false,"error":{"code":"...","message":"...","hint":"..."}}` on stdout with nonzero exit status; plain-text errors go to stderr. Error codes are `USAGE_ERROR` and `SKILL_READ_FAILED`.
-
-Only `--full` adds `files` to the skill entry, with reference entries shaped as `{"path":"references/workflows.md","content":"..."}`. All envelopes may include an optional top-level `nextSteps` array of strings. Unknown flags or skill names are usage errors (exit 2); missing packaged assets are runtime errors (exit 1). Only one skill is retrieved at a time; there is no `--all` or multi-skill form.
-
-If the executable, skills command, core, or reference assets are missing, report the CLI/skill mismatch and observed error. Do not fabricate instructions, fall back to remembered workflows, or install/upgrade anything automatically. Setup correction needs explicit authorization.
-
-## Manual project skill installation
-
-The source checkout contains the stub at `skills/issue-graph/SKILL.md`. Copy only the `skills/issue-graph` directory into a project skill directory supported by your agent, or symlink it if your agent supports symlinks. Keep `SKILL.md` at the root of that directory. Do not copy the operational core or references into the agent's skill directory: the stub retrieves those from the CLI.
-
-For example, from the target project, for a harness that discovers `.agents/skills`:
-
-```bash
-mkdir -p .agents/skills
-cp -R /absolute/path/to/issue-graph/skills/issue-graph .agents/skills/issue-graph
-```
-
-Use your actual source-checkout path. Check whether the destination already exists first; compare any local changes instead of overwriting them. For Claude Code's project-local skills, use `.claude/skills/issue-graph` as the destination. Discovery and reload behavior depend on the harness, so check its skill list after copying.
-
-You can also ask an agent to read the source `SKILL.md` directly for one task without installing it. Do not assume every harness uses the same directory or supports a skill installer. No global skill installation is required.
-
-## Ask an agent to set up the skill
-
-Give the agent a concrete local path and a project-scoped request, for example:
-
-> Read `/absolute/path/to/issue-graph/skills/issue-graph/SKILL.md` and load `issue-graph skills get core`. Install only this stub into this project's supported skill directory if it is absent. If a copy exists, compare it and ask before replacing local changes. If the CLI or guidance is unavailable, report the mismatch and stop. Do not automatically install or upgrade the CLI, install skills globally, or mutate GitHub.
-
-Copying prose cannot repair an unavailable CLI or grant repository access. Loading guidance does not authenticate GitHub. Check authentication before operational queries, not as a prerequisite for local skill discovery. A CLI installation does not automatically register the stub with an agent.
+Use `issue-graph skills list` to discover guidance and command-specific `--help` to check syntax. The canonical skill provides discovery; the installed CLI supplies the core and references. If the executable, guidance, or assets are unavailable, stop and report the mismatch and observed error. Do not invent guidance or automatically install or upgrade anything; ask for an authorized setup correction.
 
 ## Route the request before collecting evidence
 
