@@ -6,13 +6,13 @@
   <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg?style=for-the-badge&amp;labelColor=000000" height="28"></a>
 </p>
 
-Find related GitHub issues, competing pull requests, and unresolved follow-ups before you start work.
+Find related issues, competing changes, and unresolved follow-ups before you start work.
 
 `issue-graph` follows text mentions and GitHub's structural links across repositories. Use it to inspect one issue's neighborhood, count open PRs by author and project, or turn a backlog into a verification queue. Crawling, classification, and ranking need no model. Root-cause clustering is an optional agent step.
 
-![Bounded agent-browser graph: closed issue 1113, merged fix PR 1137, closed regression 1148, and open follow-ups 1371 and 1607.](apps/docs/public/issue-graph-demo.svg)
+![issue-graph demo](apps/docs/public/issue-graph-demo.png)
 
-Public reference data captured on 2026-09-22, not a live feed or complete history. All five fetched nodes are in `vercel-labs/agent-browser`; 19 references remain beyond the depth boundary and 22 edges to unfetched references are omitted from the displayed graph. Re-run the bounded command below to inspect current evidence, which may differ from the capture.
+Example output, not a live feed or complete history. [Capture details](apps/docs/content/docs/graph.mdx).
 
 ## Start here
 
