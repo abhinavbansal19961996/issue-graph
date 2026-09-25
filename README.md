@@ -10,9 +10,9 @@ Find related issues, competing changes, and unresolved follow-ups before you sta
 
 `issue-graph` traces linked GitHub issues and pull requests. Use it to find existing fixes, check PR status by author, and choose what to review next.
 
-![issue-graph demo](https://issue-graph.dev/issue-graph-demo.png)
+![issue-graph demo: related fixes and follow-ups, superseded PRs to review, and a per-author PR status ledger](https://issue-graph.dev/issue-graph-workflows.gif)
 
-Public CLI output captured on September 22, 2026. [Capture details](https://issue-graph.dev/docs/graph).
+Illustrated workflows: Graph → Reconcile → PR status. [Static version](https://issue-graph.dev/issue-graph-workflows.png) · [Explore the workflows](https://issue-graph.dev/docs).
 
 ## Start here
 
@@ -41,7 +41,7 @@ issue-graph 1113 --repo vercel-labs/agent-browser --depth 1 --max-nodes 12 --no-
 
 To use npx instead, replace `issue-graph` with `npx issue-graph@latest`. At the 2026-09-22 capture, issue #1113 was closed, [PR #1137](https://github.com/vercel-labs/agent-browser/pull/1137) was merged, [regression #1148](https://github.com/vercel-labs/agent-browser/issues/1148) was closed, and follow-ups [#1371](https://github.com/vercel-labs/agent-browser/issues/1371) and [#1607](https://github.com/vercel-labs/agent-browser/issues/1607) were open. Check the open follow-ups before assuming the fix covers them.
 
-Check missing references and crawl limits in the report. Each run queries GitHub, so results can change.
+Check missing references and crawl limits in the report. Each run queries GitHub, so results can change. [Capture details](https://issue-graph.dev/docs/graph).
 
 ### Update an npm installation
 
