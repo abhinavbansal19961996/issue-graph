@@ -66,9 +66,9 @@ Before starting issue work, inspect its graph for existing work and credit contr
 ## Use bounded evidence
 
 Graph mode follows text and structural links. Same-repository recursion is bounded;
-cross-repository references are fetched one hop, not expanded. Jira mode similarly
-recurses within a project and bounds cross-project issues; non-Jira links stay
-unfetched. Report failed nodes, node caps, unexpanded hubs, and per-node API limits. Inaccessible work is not absent.
+cross-repository references are fetched one hop, not expanded. Jira mode recurses
+within a project, fetches structured cross-project links at the boundary, and leaves
+cross-project text matches and non-Jira links unfetched. Report failed nodes, node caps, unexpanded hubs, and per-node API limits. Inaccessible work is not absent.
 A zero exit from graph/reconcile/plan alone does not certify complete coverage.
 
 Superseded, competing, shared-file overlap, and missing closing-link classifications
